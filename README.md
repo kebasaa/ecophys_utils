@@ -46,6 +46,12 @@ from ecophys_utils import dataloading
     ```python
     from ecophysutils import dataloading
     ```
+	
+3. Install it as a package:
+    ```
+    conda activate my_env
+    pip install -e C:\Users\my_user\Documents\Github\ecopyhs_utils\
+    ```
 
 Would you like help organizing your functions into meaningful modules? 🚀
 
