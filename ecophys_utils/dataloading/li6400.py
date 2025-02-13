@@ -1,5 +1,7 @@
 def load_li6400(input_fn, silent=True):
     import os
+    import pandas as pd
+    from ..misc.misc import sanitize_column_names
     
     if (not silent):
         print('  -', input_fn.split('/')[-1])
@@ -64,6 +66,7 @@ def load_li6400(input_fn, silent=True):
 def load_all_li6400(path, silent=False):
     import os
     import glob
+    import pandas as pd
     if (not silent):
         print('Loading from ' + path)
 
