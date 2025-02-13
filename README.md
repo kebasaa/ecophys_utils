@@ -22,30 +22,30 @@ There are a few options on how to use this package. We assume that you are using
 
 1. Add it to _sys.path_ temporarily. In any script, add the following at the top (replace "my_user" with your Windows user name):
 
-```python
-import sys
-sys.path.append(r"C:\Users\my_user\Documents\Github\")
-from ecophys_utils import dataloading
-```
+    ```python
+    import sys
+    sys.path.append(r"C:\Users\my_user\Documents\Github\")
+    from ecophys_utils import dataloading
+    ```
 
 2. Add it to PYTHONPATH permanently. This allows python to always find it and be easily imported
     - Locate the site-packages directory for your my_env environment. This will output a path like C:\Users\my_user\anaconda3\envs\my_env\Lib\site-packages\:
-    ```bash
-    conda activate my_env
-    python -c "import site; print(site.getsitepackages())"
-    ```
+        ```bash
+        conda activate my_env
+        python -c "import site; print(site.getsitepackages())"
+        ```
 
     - Create a file named ecophys_utils.pth inside the folder found above, and add the following line to it:
 	
-    ```
-    C:\Users\my_user\Documents\Github\ecophys_utils\
-    ```
+        ```
+        C:\Users\my_user\Documents\Github\ecophys_utils\
+        ```
 
     - Now, you can simply use the library:
 
-    ```python
-    from ecophysutils import dataloading
-    ```
+        ```python
+        from ecophysutils import dataloading
+        ```
 	
 3. Install it as a package:
     ```
