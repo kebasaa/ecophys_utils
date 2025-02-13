@@ -37,15 +37,15 @@ from ecophys_utils import dataloading
 
     - Create a file named ecophys_utils.pth inside the folder found above, and add the following line to it:
 	
-```python
-C:\Users\my_user\Documents\Github\ecophys_utils\
-```
-2.
+    ```
+    C:\Users\my_user\Documents\Github\ecophys_utils\
+    ```
+
     - Now, you can simply use the library:
 
-```python
-from ecophysutils import dataloading
-```
+    ```python
+    from ecophysutils import dataloading
+    ```
 
 Would you like help organizing your functions into meaningful modules? 🚀
 
