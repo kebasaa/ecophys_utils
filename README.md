@@ -29,21 +29,19 @@ from ecophys_utils import dataloading
 ```
 
 2. Add it to PYTHONPATH permanently. This allows python to always find it and be easily imported
-    a. Locate the site-packages directory for your my_env environment. This will output a path like C:\Users\my_user\anaconda3\envs\my_env\Lib\site-packages\:
+    - Locate the site-packages directory for your my_env environment. This will output a path like C:\Users\my_user\anaconda3\envs\my_env\Lib\site-packages\:
 ```bash
 conda activate my_env
 python -c "import site; print(site.getsitepackages())"
 ```
-u
-
-    b. Create a file named ecophys_utils.pth inside the folder found above, and add the following line to it:
+2.
+    - Create a file named ecophys_utils.pth inside the folder found above, and add the following line to it:
 	
 ```python
 C:\Users\my_user\Documents\Github\ecophys_utils\
 ```
-u
-
-    c. Now, you can simply use the library:
+2.
+    - Now, you can simply use the library:
 
 ```python
 from ecophysutils import dataloading
