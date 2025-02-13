@@ -11,6 +11,8 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
 
 1. **dataloading:** Functions for loading data from a range of devices. Contains the following functions:
     - _load_eddypro_: Functions for loading output files of [Eddypro (LI-COR Biosciences)](https://www.licor.com/support/EddyPro/software.html)
+	- _load_li600_: Functions for loading output files of the [LI-COR LI-600 Porometer/ Fluorometer](https://www.licor.com/products/LI-600)
+	- _load_li6400_: Functions for loading output files of the [LI-COR LI-6400 Portable Photosynthesis System](https://www.licor.com/support/LI-6400/topics/system-description.html)
 
 ## How to Cite (Update later once useful)
 
