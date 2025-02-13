@@ -13,14 +13,14 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
 
 1. **dataloading:** Load data from a range of devices. Contains the following functions:
     - _Eddypro:_ [Eddypro (LI-COR Biosciences)](https://www.licor.com/support/EddyPro/software.html) outputs
-	    - `load_eddypro(fn, silent=False)`: Load a single Eddypro file. Supports "biomet" and "full_output"
-		- `load_all_eddypro(path, dataset='full_output', silent=False)`: Load a folder of Eddypro files. Supports "biomet" and "full_output"
+	    - `load_eddypro(fn, silent=False)`: Load a single file, supports "biomet" and "full_output"
+		- `load_all_eddypro(path, dataset='full_output', silent=False)`: Load a folder of files, supports "biomet" and "full_output"
 	- _LI-600_: [LI-COR LI-600 Porometer/ Fluorometer](https://www.licor.com/products/LI-600) outputs
-	    - `load_li600(input_fn, silent=True)`: Load a single LI-600 file
-		- `load_all_li600(path, pattern='.csv', silent=False)`: Load a folder of LI-600 files
+	    - `load_li600(input_fn, silent=True)`: Load a single file
+		- `load_all_li600(path, pattern='.csv', silent=False)`: Load a folder of files
 	- _LI-6400_: [LI-COR LI-6400 Portable Photosynthesis System](https://www.licor.com/support/LI-6400/topics/system-description.html) outputs
-	    - `load_li6400(input_fn, silent=True)`: Load a single LI-6400 file
-		- `load_all_li6400(path, silent=False)`: Load a folder of LI-6400 files
+	    - `load_li6400(input_fn, silent=True)`: Load a single file
+		- `load_all_li6400(path, silent=False)`: Load a folder of files
 	- _Zipped CSVs:_ All CSVs contained in a zip file
 	    - `load_all_zip(path, silent=False)`
 2. **meteo:** Meteorology functions
