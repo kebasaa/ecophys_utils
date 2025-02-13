@@ -9,7 +9,7 @@
 
 Library of support functions for Ecophysiology (Eddy Covariance, flux calculations, etc.). Functions are organised by files
 
-## Description of available functions
+## Documentation (Available functions)
 
 1. **dataloading:** Load data from a range of devices. Contains the following functions:
     - _Eddypro:_ [Eddypro (LI-COR Biosciences)](https://www.licor.com/support/EddyPro/software.html) outputs
@@ -26,6 +26,7 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
 2. **meteo:** Meteorology functions
     - `calculate_last_precipitation(df, timestamp_col='timestamp', precipitation_col='P_1_1_1', max_gap_in_event_h=12)`: Calculates time since last precipitation event, and the summed amount of the event
 3. **misc:** Miscellaneous functions
+    - `upsample_interpolate_df(temp, freq='1min', interpolation_limit=1800)`: Upsamples a df, e.g. from 30min to 1min, and interpolates the number of data points given in "interpolation_limit"
     - `sanitize_column_names(header)`: Cleans column names by removing parentheses, underscores and other special characters. Usage: `df.columns = sanitize_column_names(df.columns)`
 
 	
