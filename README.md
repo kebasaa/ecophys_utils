@@ -10,7 +10,7 @@
 Library of support functions for Ecophysiology (Eddy Covariance, flux calculations, etc.). Functions are organised by files
 
 1. **dataloading:** Functions for loading data from a range of devices. Contains the following functions:
-    - _load_eddypro_: Functions for loading output files of [Eddypro (LI-COR Biosciences)](https://www.aerodyne.com/wp-content/uploads/2021/11/OCS_COS.pdf)
+    - _load_eddypro_: Functions for loading output files of [Eddypro (LI-COR Biosciences)](https://www.licor.com/support/EddyPro/software.html)
 
 ## How to Cite (Update later once useful)
 
