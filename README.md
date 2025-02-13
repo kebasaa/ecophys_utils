@@ -34,7 +34,9 @@ from ecophys_utils import dataloading
 conda activate my_env
 python -c "import site; print(site.getsitepackages())"
 ```
+
     - Create a file named ecophys_utils.pth inside the folder found above, and add the following line to it:
+	
 ```
 C:\Users\my_user\Documents\Github\ecophys_utils\
 ```
