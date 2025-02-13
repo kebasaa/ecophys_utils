@@ -26,8 +26,10 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
 2. **meteo:** Meteorology functions
     - `calculate_last_precipitation(df, timestamp_col='timestamp', precipitation_col='P_1_1_1', max_gap_in_event_h=12)`: Calculates time since last precipitation event, and the summed amount of the event
 3. **misc:** Miscellaneous functions
-    - `upsample_interpolate_df(temp, freq='1min', interpolation_limit=1800)`: Upsamples a df, e.g. from 30min to 1min, and interpolates the number of data points given in "interpolation_limit"
+    - `upsample_interpolate_df(temp, freq='1min', interpolation_limit=30)`: Upsamples a df, e.g. from 30min to 1min, and interpolates the number of data points given in "interpolation_limit"
     - `sanitize_column_names(header)`: Cleans column names by removing parentheses, underscores and other special characters. Usage: `df.columns = sanitize_column_names(df.columns)`
+4. **cleanup:** Cleanup functions, e.g. permitting the removal of flagged data
+    - `flagged_data_removal_ep(temp, col, flag, silent=False)`: Cleans up a data column (col) by setting values to NAN if the flag applies. Usage example: `df['H'] = flagged_data_removal_ep(df, 'H', (df['qc_H'] >= 2))`
 
 	
 ## Usage
