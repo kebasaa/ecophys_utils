@@ -30,6 +30,7 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
     - `sanitize_column_names(header)`: Cleans column names by removing parentheses, underscores and other special characters. Usage: `df.columns = sanitize_column_names(df.columns)`
 4. **cleanup:** Cleanup functions, e.g. permitting the removal of flagged data
     - `flagged_data_removal_ep(temp, col, flag, silent=False)`: Cleans up a data column (col) by setting values to NAN if the flag applies, useful here for Eddypro flags. Usage example: `df['H'] = flagged_data_removal_ep(df, 'H', (df['qc_H'] >= 2))`
+5. **physics:** TODO
 
 	
 ## Usage
