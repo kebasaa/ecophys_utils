@@ -1,4 +1,5 @@
 def load_li600(input_fn, silent=True):
+    import pandas as pd
     if (not silent):
         print('  -', input_fn.split('/')[-1])
 
@@ -19,6 +20,8 @@ def load_li600(input_fn, silent=True):
     return(df)
 
 def load_all_li600(path, pattern='.csv', silent=False):
+    import glob
+    import pandas as pd
     if (not silent):
         print('Loading from ' + path)
         
@@ -35,3 +38,23 @@ def load_all_li600(path, pattern='.csv', silent=False):
 
     df = pd.concat(df_list, axis=0, ignore_index=True)
     return(df)
+    
+def remove_obsolete_cols_li600(temp, silent=False):
+    import pandas as pd
+    if (not silent):
+        print('Removing obsolete columns')
+    # Remove obsolete columns
+    temp.drop('configAuthor', axis=1, inplace=True)
+    temp.drop('configName', axis=1, inplace=True)
+    temp.drop('configUpdatedAt', axis=1, inplace=True)
+    temp.drop('flashID', axis=1, inplace=True)
+    temp.drop('flashId', axis=1, inplace=True)
+    temp.drop('lciSerNum', axis=1, inplace=True)
+    temp.drop('lcpSerNum', axis=1, inplace=True)
+    temp.drop('lcfSerNum', axis=1, inplace=True)
+    temp.drop('lcrhSerNum', axis=1, inplace=True)
+    temp.drop('version', axis=1, inplace=True)
+    temp.drop('flash_type', axis=1, inplace=True)
+    temp.drop('remark', axis=1, inplace=True)
+    
+    return(temp)
