@@ -1,0 +1,69 @@
+# Function to determine day or night
+def is_day(timestamp_series, lat, lon, tz, numeric=True):
+    # Required to calculate Day/Night
+    from astral import LocationInfo
+    from astral.sun import sun
+    # Create the location object once
+    location = LocationInfo(latitude=lat, longitude=lon)
+    
+    # Convert timestamps to timezone-aware datetimes
+    timestamp_series = pd.to_datetime(timestamp_series).dt.tz_localize(tz, nonexistent='NaT', ambiguous='NaT')
+
+    # Apply the function element-wise
+    def check_day_night(ts):
+        if pd.isna(ts):  # Handle NaT values gracefully
+            return None
+        s = sun(location.observer, date=ts)
+        if(numeric):
+            return 1 if s['sunrise'] <= ts <= s['sunset'] else 0
+        else:
+            return 'Day' if s['sunrise'] <= ts <= s['sunset'] else 'Night'
+
+    return timestamp_series.apply(check_day_night)
+    
+def create_doy_block_id(timestamps):
+    temp = timestamps.to_frame()
+    temp['year'] = temp['timestamp'].dt.strftime('%Y').astype(int)
+    # Create DOY ('day of year') variable
+    temp['blockID'] = temp['timestamp'].dt.strftime('%j').astype(int)
+    
+    # calculate number of days to add to each doy
+    temp['days_in_year'] = temp['timestamp'].dt.is_leap_year.replace({True: 366, False: 365})
+    year_lengths = temp[['year','days_in_year']].drop_duplicates()
+    year_lengths['annual_day_sums'] = year_lengths['days_in_year'].cumsum().shift(1, fill_value=0)
+    # Combine and add the numbers
+    temp = temp.merge(year_lengths[['year','annual_day_sums']], on='year', how='left')
+    temp['blockID'] = temp['blockID'] + temp['annual_day_sums']
+
+    # Make sure that the blocks are not divided by midnight, but rather midday
+    temp.loc[temp['timestamp'].dt.hour < 12, 'blockID'] = temp.loc[temp['timestamp'].dt.hour < 12, 'blockID'] - 1
+    
+    return(temp['blockID'].values)
+    
+# Calculate ecosystem respiration (Reco)
+def respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux'):
+    temp = temp.copy()
+    # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
+    temp['Reco'] = temp[gpp_col]
+    temp.loc[temp[dn_col] == 1, ['Reco']] = np.nan
+
+    # Create day/night block IDs
+    temp['blockID'] = create_doy_block_id(temp['timestamp'])
+
+    # Night-time averageing (if there are more than 10 data points)
+    night_mean_df = temp[['blockID','Reco']].groupby('blockID').agg(['median','count']).reset_index()
+    night_mean_df.columns = ['_'.join(filter(None, col)).strip() for col in night_mean_df.columns]
+    night_mean_df.loc[night_mean_df['Reco_count'] < 10, 'Reco_median'] = np.nan
+    night_mean_df.drop(columns=['Reco_count'], inplace=True)
+    night_mean_df.rename(columns={'Reco_median': 'Reco'}, inplace=True)
+
+    # Remove now obsolete Reco column, so it can be imported from nighttime medians
+    temp.drop(columns=['Reco'], inplace=True)
+
+    # Make sure Reco gets added at midnight only
+    temp = temp.merge(night_mean_df, on='blockID', how='left')
+    temp.loc[temp['timestamp'].dt.strftime('%H%M') != '0000', 'Reco'] = np.nan
+
+    # Now interpolate Reco for all other times (limited to 1 day, or 48 half-hours)
+    temp['Reco'].interpolate(method='polynomial', order=2, limit=48, limit_direction='forward', axis=0, inplace=True)
+    return(temp['Reco'])
