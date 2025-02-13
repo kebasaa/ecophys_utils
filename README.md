@@ -23,7 +23,9 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
 		- `load_all_li6400(path, silent=False)`: Load a folder of LI-6400 files
 	- _Zipped CSVs:_ Functions for loading all CSVs contained in a zip file
 	    - `load_all_zip(path, silent=False)`
-2. **misc:** Miscellaneous functions
+2. **meteo:** Meteorology functions
+    - `calculate_last_precipitation(df, timestamp_col='timestamp', precipitation_col='P_1_1_1', max_gap_in_event_h=12)`: Calculates time since last precipitation event, and sums amount of the event
+3. **misc:** Miscellaneous functions
     - `sanitize_column_names(header)`: Cleans column names by removing parentheses, underscores and other special characters. Usage: `df.columns = sanitize_column_names(df.columns)`
 
 	
