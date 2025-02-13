@@ -11,20 +11,20 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
 
 ## Description of available functions
 
-1. **dataloading:** Functions for loading data from a range of devices. Contains the following functions:
-    - _Eddypro:_ Functions for loading output files of [Eddypro (LI-COR Biosciences)](https://www.licor.com/support/EddyPro/software.html)
+1. **dataloading:** Load data from a range of devices. Contains the following functions:
+    - _Eddypro:_ [Eddypro (LI-COR Biosciences)](https://www.licor.com/support/EddyPro/software.html) outputs
 	    - `load_eddypro(fn, silent=False)`: Load a single Eddypro file. Supports "biomet" and "full_output"
 		- `load_all_eddypro(path, dataset='full_output', silent=False)`: Load a folder of Eddypro files. Supports "biomet" and "full_output"
-	- _LI-600_: Functions for loading output files of the [LI-COR LI-600 Porometer/ Fluorometer](https://www.licor.com/products/LI-600)
+	- _LI-600_: [LI-COR LI-600 Porometer/ Fluorometer](https://www.licor.com/products/LI-600) outputs
 	    - `load_li600(input_fn, silent=True)`: Load a single LI-600 file
 		- `load_all_li600(path, pattern='.csv', silent=False)`: Load a folder of LI-600 files
-	- _LI-6400_: Functions for loading output files of the [LI-COR LI-6400 Portable Photosynthesis System](https://www.licor.com/support/LI-6400/topics/system-description.html)
+	- _LI-6400_: [LI-COR LI-6400 Portable Photosynthesis System](https://www.licor.com/support/LI-6400/topics/system-description.html) outputs
 	    - `load_li6400(input_fn, silent=True)`: Load a single LI-6400 file
 		- `load_all_li6400(path, silent=False)`: Load a folder of LI-6400 files
-	- _Zipped CSVs:_ Functions for loading all CSVs contained in a zip file
+	- _Zipped CSVs:_ All CSVs contained in a zip file
 	    - `load_all_zip(path, silent=False)`
 2. **meteo:** Meteorology functions
-    - `calculate_last_precipitation(df, timestamp_col='timestamp', precipitation_col='P_1_1_1', max_gap_in_event_h=12)`: Calculates time since last precipitation event, and sums amount of the event
+    - `calculate_last_precipitation(df, timestamp_col='timestamp', precipitation_col='P_1_1_1', max_gap_in_event_h=12)`: Calculates time since last precipitation event, and the summed amount of the event
 3. **misc:** Miscellaneous functions
     - `sanitize_column_names(header)`: Cleans column names by removing parentheses, underscores and other special characters. Usage: `df.columns = sanitize_column_names(df.columns)`
 
