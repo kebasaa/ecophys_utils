@@ -51,6 +51,8 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
     - `is_day(timestamp_series, lat, lon, tz, numeric=True)`: Determines whether it is day or night based on the position of the sun. _numeric=True_ results in 1=Day and 0=Night, _numeric=False_ results in textual "Day" or "Night"
     - `respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux')`: Calculates the respiration from night-time GPP. Night-time GPP is averaged (median) and applied to midnight, then values are interpolated as a daytime respiration
     - `calculate_npp(gpp, reco)`: Calculates the assimilation from ecosystem GPP and respiration
+7. **units:** Functions for unit conversions:
+    - `convert_RH_to_mmol(RH, T_C, P_Pa)`: Convert RH to water concentration in the air. Note that the reverse is currently in the "physics" section
 
 	
 ## Usage
