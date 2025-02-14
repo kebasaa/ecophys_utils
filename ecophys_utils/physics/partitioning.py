@@ -45,6 +45,7 @@ def create_doy_block_id(timestamps):
 # Calculate ecosystem respiration (Reco)
 def respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux'):
     import pandas as pd
+    import numpy as np
     temp = temp.copy()
     # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
     temp['Reco'] = temp[gpp_col]
