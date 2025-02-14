@@ -3,6 +3,7 @@ def is_day(timestamp_series, lat, lon, tz, numeric=True):
     # Required to calculate Day/Night
     from astral import LocationInfo
     from astral.sun import sun
+    import pandas as pd
     # Create the location object once
     location = LocationInfo(latitude=lat, longitude=lon)
     
@@ -22,6 +23,7 @@ def is_day(timestamp_series, lat, lon, tz, numeric=True):
     return timestamp_series.apply(check_day_night)
     
 def create_doy_block_id(timestamps):
+    import pandas as pd
     temp = timestamps.to_frame()
     temp['year'] = temp['timestamp'].dt.strftime('%Y').astype(int)
     # Create DOY ('day of year') variable
@@ -42,6 +44,7 @@ def create_doy_block_id(timestamps):
     
 # Calculate ecosystem respiration (Reco)
 def respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux'):
+    import pandas as pd
     temp = temp.copy()
     # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
     temp['Reco'] = temp[gpp_col]
