@@ -3,12 +3,14 @@
 
 # Calculate the dewpoint temperature in C
 def calculate_dewpointC(T_C, RH):
+    import numpy as np
     dp = 243.04*(np.log(RH/100)+((17.625*T_C)/(243.04+T_C)))/(17.625-log(RH/100)-((17.625*T_C)/(243.04+T_C)))
     return(dp)
 
 # Calculate saturation vapour pressure from pressure and temperature
 # - 2 methods are available. Jones uses air pressure, Campbell & Norman do not
 def calculate_es(T_C, P_Pa):
+    import numpy as np
     # Jones p.348 (appendix 4)
     #es = (1.00072+(10**(-7)*P_Pa*(0.032+5.9*10**(-6)*T_C**2))) * (611.21*np.exp( (18.678-(T_C/234.5))*T_C/(257.14+T_C) ))
 
@@ -32,6 +34,7 @@ def calculate_VPD(T_C, h2o_mmol_mol, P_Pa):
 
 # Converts water concentration [mmol mol] to RH [%]
 def convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa):
+    import numpy as np
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
     h2o_mol_mol = h2o_mmol_mol * 10**(-3) # water in [mol mol-1]
@@ -50,9 +53,11 @@ def convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa):
 # Density of dry air
 # - https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
 def calculate_rho_dry_air(T_C, h2o_mmol_mol, P_Pa):
+    # Unit conversions 
+    T_K = T_C + 273.15           # Temperature in K
+    h2o_mol_mol = h2o_mmol_mol * 10**(-3) # water in [mol mol-1]
     # Constants
     R_dry_air = 287.058     # [J kg-1 K-1] Specific gas const dry air
-    T_K = T_C + 273.15
     
     # Preparations
     R     = 8.314463             # Ideal gas constant (J K-1 mol-1)
@@ -207,6 +212,7 @@ def calculate_gas_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, ga
 
 # Conductance calculations
 def calculate_cos_stomatal_conductance_ball_berry(T_C, h2o_mmol_mol, P_Pa, f_h2o_mmol_m2_s1, f_co2_umol_m2_s1, co2_umol_mol_ambient, PAR):
+    import pandas as pd
     # Note: T_C is the air temperature in C
     
     # Calculate some initial values
@@ -245,6 +251,7 @@ def relative_uptake(f_cos_pmol_m2_s1, f_co2_umol_m2_s1, cos_pmol_mol_ambient, co
     return(ru)
 
 def calculate_biochemical_conductance(T_leaf, LAI):
+    import numpy as np
     # Preparations
     R  = 8.314463 # Ideal gas constant (J K-1 mol-1)
     E0 = 40
@@ -258,6 +265,7 @@ def calculate_biochemical_conductance(T_leaf, LAI):
     return(g_ca)
 
 def calculate_mesophyll_conductance(T_leaf, LAI):
+    import numpy as np
     g_m = 0.188*LAI * np.exp(-0.5*(np.log((T_leaf/28.8)/0.61))**2)
 
     return(g_m)

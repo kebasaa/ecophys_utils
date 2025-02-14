@@ -70,3 +70,8 @@ def respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux'):
     # Now interpolate Reco for all other times (limited to 1 day, or 48 half-hours)
     temp['Reco'].interpolate(method='polynomial', order=2, limit=48, limit_direction='forward', axis=0, inplace=True)
     return(temp['Reco'])
+    
+# Calculates NPP from GPP and ecosystem respiration
+def calculate_npp(gpp, reco):
+    assimilation = gpp - reco
+    return(assimilation)

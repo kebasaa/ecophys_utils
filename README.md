@@ -31,6 +31,10 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
 4. **cleanup:** Cleanup functions, e.g. permitting the removal of flagged data
     - `flagged_data_removal_ep(temp, col, flag, silent=False)`: Cleans up a data column (col) by setting values to NAN if the flag applies, useful here for Eddypro flags. Usage example: `df['H'] = flagged_data_removal_ep(df, 'H', (df['qc_H'] >= 2))`
 5. **physics:** TODO
+6. **partitioning:** Partitioning of ecosystem assimilation and respiration from NPP
+    - `is_day(timestamp_series, lat, lon, tz, numeric=True)`: Determines whether it is day or night based on the position of the sun. _numeric=True_ results in 1=Day and 0=Night, _numeric=False_ results in textual "Day" or "Night"
+    - `respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux')`: Calculates the respiration from night-time GPP. Night-time GPP is averaged (median) and applied to midnight, then values are interpolated as a daytime respiration
+    - `calculate_npp(gpp, reco)`: Calculates the assimilation from ecosystem GPP and respiration
 
 	
 ## Usage
