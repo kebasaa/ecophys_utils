@@ -30,7 +30,23 @@ Library of support functions for Ecophysiology (Eddy Covariance, flux calculatio
     - `sanitize_column_names(header)`: Cleans column names by removing parentheses, underscores and other special characters. Usage: `df.columns = sanitize_column_names(df.columns)`
 4. **cleanup:** Cleanup functions, e.g. permitting the removal of flagged data
     - `flagged_data_removal_ep(temp, col, flag, silent=False)`: Cleans up a data column (col) by setting values to NAN if the flag applies, useful here for Eddypro flags. Usage example: `df['H'] = flagged_data_removal_ep(df, 'H', (df['qc_H'] >= 2))`
-5. **physics:** TODO
+5. **physics:** Numerious physics functions related to the air and fluxes
+    - `calculate_dewpointC(T_C, RH)`: Dewpoint temperature
+    - `calculate_es(T_C, P_Pa)`: Saturation vapour pressure
+    - `calculate_VPD(T_C, h2o_mmol_mol, P_Pa)`: Vapour pressure deficit
+    - `convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa)`: Convert water concentration to relative humidity
+    - `calculate_rho_dry_air(T_C, h2o_mmol_mol, P_Pa)`: Density of dry air
+    - `calculate_rho_moist_air(T_C, h2o_mmol_mol, P_Pa)`: Density of moist air
+    - `calculate_cp_dry_air(T_C)`: Heat capacity of dry air
+    - `calculate_cp_moist_air(T_C, h2o_mmol_mol, P_Pa)`: Heat capacity of moist air
+    - `calculate_h2o_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, airflow_lpm, area_m2)`: Water flux
+    - `calculate_gas_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, gas_mol_mol_ambient, gas_mol_mol_chamber, airflow_lpm, area_m2)`: Flux for any other gas
+    - `calculate_cos_stomatal_conductance_ball_berry(T_C, h2o_mmol_mol, P_Pa, f_h2o_mmol_m2_s1, f_co2_umol_m2_s1, co2_umol_mol_ambient, PAR)`: Stomatal conductance of COS (or OCS) with the Ball-Berry correction
+    - `calculate_cos_total_conductance(f_cos_pmol_m2_s1, cos_pmol_mol_ambient)`: Total conductance of COS (or OCS) 
+    - `calculate_cos_internal_conductance(g_total, g_stomatal)`: Internal conductance of COS (or OCS) 
+    - `relative_uptake(f_cos_pmol_m2_s1, f_co2_umol_m2_s1, cos_pmol_mol_ambient, co2_umol_mol_ambient)`: Leaf/soil relative uptake, i.e. LRU and SRU
+    - `calculate_biochemical_conductance(T_leaf, LAI)`: Biochemical conductance
+    - `calculate_mesophyll_conductance(T_leaf, LAI)`: Mesophyll conductance
 6. **partitioning:** Partitioning of ecosystem assimilation and respiration from NPP
     - `is_day(timestamp_series, lat, lon, tz, numeric=True)`: Determines whether it is day or night based on the position of the sun. _numeric=True_ results in 1=Day and 0=Night, _numeric=False_ results in textual "Day" or "Night"
     - `respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux')`: Calculates the respiration from night-time GPP. Night-time GPP is averaged (median) and applied to midnight, then values are interpolated as a daytime respiration
