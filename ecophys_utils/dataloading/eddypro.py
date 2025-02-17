@@ -33,7 +33,7 @@ def load_all_eddypro(path, dataset='full_output', silent=False):
     df_list = []
     for fn_i, fn in enumerate(fn_list):
         if(silent == False): # % 20 to show every 20th file being loaded
-            print( '\t{:<07}'.format(str(round(fn_i * 100 / len(fn_list), 4))) + "%\t" + fn.split('\\')[-1])
+            print( '\t{:<07}'.format(str(round(fn_i * 100 / len(fn_list), 4))) + "%\t" + fn.split('\\')[-2] + '\\' + fn.split('\\')[-1])
         # Load data
         temp = load_eddypro(fn, silent=True)
         df_list.append(temp)
