@@ -17,3 +17,11 @@ def convert_RH_to_mmol(RH, T_C, P_Pa):
     h2o_mmol_mol = h2o_mol_mol * 10**3 # water in [mmol mol-1]
     
     return(h2o_mmol_mol)
+    
+# Converts ppm to umol m-3 of dry air
+def convert_ppm_to_umol_m3(c_ppm, rho_dry_air):
+    # Constants
+    M_d   = 0.02897              # molecular weights of dry air (kg mol-1)
+    
+    c_umol_m3 = c_ppm * rho_dry_air / M_d
+    return(c_umol_m3)
