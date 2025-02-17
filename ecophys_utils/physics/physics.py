@@ -1,16 +1,16 @@
 # Physics: Unit converstions, fluxes, etc.
 #-----------------------------------------
+import numpy as np
+import pandas as pd
 
 # Calculate the dewpoint temperature in C
 def calculate_dewpointC(T_C, RH):
-    import numpy as np
     dp = 243.04*(np.log(RH/100)+((17.625*T_C)/(243.04+T_C)))/(17.625-log(RH/100)-((17.625*T_C)/(243.04+T_C)))
     return(dp)
 
 # Calculate saturation vapour pressure from pressure and temperature
 # - 2 methods are available. Jones uses air pressure, Campbell & Norman do not
 def calculate_es(T_C, P_Pa):
-    import numpy as np
     # Jones p.348 (appendix 4)
     #es = (1.00072+(10**(-7)*P_Pa*(0.032+5.9*10**(-6)*T_C**2))) * (611.21*np.exp( (18.678-(T_C/234.5))*T_C/(257.14+T_C) ))
 
@@ -34,7 +34,6 @@ def calculate_VPD(T_C, h2o_mmol_mol, P_Pa):
 
 # Converts water concentration [mmol mol] to RH [%]
 def convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa):
-    import numpy as np
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
     h2o_mol_mol = h2o_mmol_mol * 10**(-3) # water in [mol mol-1]
@@ -53,16 +52,14 @@ def convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa):
 # Density of dry air
 # - https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
 def calculate_rho_dry_air(T_C, h2o_mmol_mol, P_Pa):
+    # Constants
+    from .constants import R_dry_air, R, M_d, M_h2o
+    
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
     h2o_mol_mol = h2o_mmol_mol * 10**(-3) # water in [mol mol-1]
-    # Constants
-    R_dry_air = 287.058     # [J kg-1 K-1] Specific gas const dry air
     
     # Preparations
-    R     = 8.314463             # Ideal gas constant (J K-1 mol-1)
-    M_d   = 0.02897              # molecular weights of dry air (kg mol-1)
-    M_h2o = 0.01802              # molecular weights of water vapour (kg mol-1)
     e = h2o_mol_mol * P_Pa       # Water vapor partial pressure (Pa)
     P_d = P_Pa - e               # Dry air partial pressure (P_d, P_a)
     
@@ -71,14 +68,14 @@ def calculate_rho_dry_air(T_C, h2o_mmol_mol, P_Pa):
 
 # Density of moist air
 def calculate_rho_moist_air(T_C, h2o_mmol_mol, P_Pa):
+    # Constants
+    from .constants import R, M_d, M_h2o
+    
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
     h2o_mol_mol = h2o_mmol_mol * 10**(-3) # water in [mol mol-1]
-
+    
     # Preparations
-    R     = 8.314463             # Ideal gas constant (J K-1 mol-1)
-    M_d   = 0.02897              # molecular weights of dry air (kg mol-1)
-    M_h2o = 0.01802              # molecular weights of water vapour (kg mol-1)
     e = h2o_mol_mol * P_Pa       # Water vapor partial pressure (Pa)
     P_d = P_Pa - e               # Dry air partial pressure (P_d, P_a)
     rho_d = P_d / (R / M_d * T_K) # Dry air mass density (rho_d, kg m-3)
@@ -102,6 +99,9 @@ def calculate_cp_dry_air(T_C):
 # cp_m in [J kg-1 K-1]
 # https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
 def calculate_cp_moist_air(T_C, h2o_mmol_mol, P_Pa):
+    # Constants
+    from .constants import R, M_d, M_h2o
+    
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
     h2o_mol_mol = h2o_mmol_mol * 10**(-3) # water in [mol mol-1]
@@ -111,11 +111,8 @@ def calculate_cp_moist_air(T_C, h2o_mmol_mol, P_Pa):
 
     # Water vapor heat capacity at constant pressure (cp_h2o, J kg-1 K-1)
     cp_h2o = 1859 + 0.13*RH + (0.193 + 5.6*10**(-3) * RH)*T_C + (10**(-3) + 5 * 10**(-5)*RH)*T_C**2
-
+    
     # Preparations
-    R     = 8.314463             # Ideal gas constant (J K-1 mol-1)
-    M_d   = 0.02897              # molecular weights of dry air (kg mol-1)
-    M_h2o = 0.01802              # molecular weights of water vapour (kg mol-1)
     e = h2o_mol_mol * P_Pa       # Water vapor partial pressure (Pa)
     P_d = P_Pa - e               # Dry air partial pressure (P_d, P_a)
     rho_d = P_d / (R / M_d * T_K) # Dry air mass density (rho_d, kg m-3)
@@ -135,15 +132,15 @@ def calculate_cp_moist_air(T_C, h2o_mmol_mol, P_Pa):
 
 # Calculates the flux of water
 def calculate_h2o_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, airflow_lpm, area_m2):
+    # Constants
+    from .constants import R, M_d, M_h2o
+    
     # Unit conversions
     T_K = T_C + 273.15 # Temperature in K
     h2o_mol_mol_ambient = h2o_mmol_mol_ambient * 10**(-3)
     h2o_mol_mol_chamber = h2o_mmol_mol_chamber * 10**(-3)
     
     # Preparations
-    R     = 8.314463             # Ideal gas constant (J K-1 mol-1)
-    M_d   = 0.02897              # molecular weights of dry air (kg mol-1)
-    M_h2o = 0.01802              # molecular weights of water vapour (kg mol-1)
     e = h2o_mol_mol_chamber * P_Pa # Water vapor partial pressure (Pa)
     P_d = P_Pa - e               # Dry air partial pressure (P_d, P_a)
     rho_d = P_d / (R / M_d * T_K) # Dry air mass density (rho_d, kg m-3)
@@ -170,15 +167,15 @@ def calculate_h2o_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, ai
 
 # Inspired from LI-6400 manual: Uses the water flux because water changes the air density. If stomata are open and H2o is added, the gas is more 'diluted'
 def calculate_gas_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, gas_mol_mol_ambient, gas_mol_mol_chamber, airflow_lpm, area_m2):
+    # Constants
+    from .constants import R, M_d, M_h2o
+    
     # Unit conversions
     T_K = T_C + 273.15 # Temperature in K
     h2o_mol_mol_ambient = h2o_mmol_mol_ambient * 10**(-3)
     h2o_mol_mol_chamber = h2o_mmol_mol_chamber * 10**(-3)
     
     # Preparations
-    R     = 8.314463             # Ideal gas constant (J K-1 mol-1)
-    M_d   = 0.02897              # molecular weights of dry air (kg mol-1)
-    M_h2o = 0.01802              # molecular weights of water vapour (kg mol-1)
     e = h2o_mol_mol_chamber * P_Pa # Water vapor partial pressure (Pa)
     P_d = P_Pa - e               # Dry air partial pressure (P_d, P_a)
     rho_d = P_d / (R / M_d * T_K) # Dry air mass density (rho_d, kg m-3)
@@ -212,7 +209,6 @@ def calculate_gas_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, ga
 
 # Conductance calculations
 def calculate_cos_stomatal_conductance_ball_berry(T_C, h2o_mmol_mol, P_Pa, f_h2o_mmol_m2_s1, f_co2_umol_m2_s1, co2_umol_mol_ambient, PAR):
-    import pandas as pd
     # Note: T_C is the air temperature in C
     
     # Calculate some initial values
@@ -251,11 +247,14 @@ def relative_uptake(f_cos_pmol_m2_s1, f_co2_umol_m2_s1, cos_pmol_mol_ambient, co
     return(ru)
 
 def calculate_biochemical_conductance(T_leaf, LAI):
-    import numpy as np
-    # Preparations
-    R  = 8.314463 # Ideal gas constant (J K-1 mol-1)
+    # Constants
+    from .constants import R
+    
+    # Constants
     E0 = 40
     ref_T_C = 20
+    
+    # Preparations
     ref_T_K = ref_T_C + 273.15
     T_leaf_K = T_leaf + 273.15
     
@@ -265,7 +264,6 @@ def calculate_biochemical_conductance(T_leaf, LAI):
     return(g_ca)
 
 def calculate_mesophyll_conductance(T_leaf, LAI):
-    import numpy as np
     g_m = 0.188*LAI * np.exp(-0.5*(np.log((T_leaf/28.8)/0.61))**2)
 
     return(g_m)
