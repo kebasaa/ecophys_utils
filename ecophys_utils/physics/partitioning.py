@@ -75,6 +75,7 @@ def respiration_from_nighttime(temp, dn_col='dn', nee_col='co2_flux'):
 # Calculates NPP from GPP and ecosystem respiration
 def calculate_gpp(nee, reco):
     gpp = reco - nee
+    gpp = np.where(gpp < 0, 0, gpp)
     return(gpp)
 
 def calculate_wue(ET_mm_h, gpp_umol_m2_s1):
@@ -84,9 +85,11 @@ def calculate_wue(ET_mm_h, gpp_umol_m2_s1):
     # Convert ET from mm h-1 to kgH2O m-2 s-1
     # 1 mm of water over 1 m² equals 1 kg, so per s, divide by 3600
     ET_kgH2O_m2_s1 = ET_mm_h/3600
+    ET_kgH2O_m2_s1 = np.where(ET_kgH2O_m2_s1 < 0.00001, 0, ET_kgH2O_m2_s1)
 
     gpp_gC_m2_s1 = gpp_umol_m2_s1 * 10**(-6) * M_C
     
     wue_gC_kgH2O = gpp_gC_m2_s1 / ET_kgH2O_m2_s1
+    wue_gC_kgH2O = np.where(np.isnan(wue_gC_kgH2O) | np.isinf(wue_gC_kgH2O), 0, wue_gC_kgH2O)
     
     return(wue_gC_kgH2O)
