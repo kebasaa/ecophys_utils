@@ -95,3 +95,15 @@ def calculate_wue(gpp_umol_m2_s1, ET_mm_h):
     wue_gC_kgH2O = np.where(np.isnan(wue_gC_kgH2O) | np.isinf(wue_gC_kgH2O), 0, wue_gC_kgH2O)
     
     return(wue_gC_kgH2O)
+    
+def calculate_wue_umol_mmol(gpp_umol_m2_s1, h2o_mmol_m2_s1):
+    # Constants
+    from ..units.constants import M_C
+    
+    # Correct h2o to ET, i.e. no negative flux
+    h2o_mmol_m2_s1 = np.where(h2o_mmol_m2_s1 < 0.00001, 0, h2o_mmol_m2_s1)
+    
+    wue_umolC_mmolH2O = gpp_umol_m2_s1 / h2o_mmol_m2_s1
+    wue_umolC_mmolH2O = np.where(np.isnan(wue_umolC_mmolH2O) | np.isinf(wue_umolC_mmolH2O), 0, wue_umolC_mmolH2O)
+    
+    return(wue_umolC_mmolH2O)
