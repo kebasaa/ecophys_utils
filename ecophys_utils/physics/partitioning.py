@@ -43,12 +43,12 @@ def create_doy_block_id(timestamps):
     return(temp['blockID'].values)
     
 # Calculate ecosystem respiration (Reco)
-def respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux'):
+def respiration_from_nighttime(temp, dn_col='dn', nee_col='co2_flux'):
     import pandas as pd
     import numpy as np
     temp = temp.copy()
     # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
-    temp['Reco'] = temp[gpp_col]
+    temp['Reco'] = temp[nee_col]
     temp.loc[temp[dn_col] == 1, ['Reco']] = np.nan
 
     # Create day/night block IDs
@@ -73,6 +73,20 @@ def respiration_from_nighttime(temp, dn_col='dn', gpp_col='co2_flux'):
     return(temp['Reco'])
     
 # Calculates NPP from GPP and ecosystem respiration
-def calculate_npp(gpp, reco):
-    assimilation = gpp - reco
-    return(assimilation)
+def calculate_gpp(nee, reco):
+    gpp = reco - nee
+    return(gpp)
+
+def calculate_wue(ET_mm_h, gpp_umol_m2_s1):
+    # Constants
+    M_C = 12.01070 # Molar mass C [g mol-1]
+    
+    # Convert ET from mm h-1 to kgH2O m-2 s-1
+    # 1 mm of water over 1 m² equals 1 kg, so per s, divide by 3600
+    ET_kgH2O_m2_s1 = ET_mm_h/3600
+
+    gpp_gC_m2_s1 = gpp_umol_m2_s1 * 10**(-6) * M_C
+    
+    wue_gC_kgH2O = gpp_gC_m2_s1 / ET_kgH2O_m2_s1
+    
+    return(wue_gC_kgH2O)
