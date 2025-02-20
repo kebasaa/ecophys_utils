@@ -1,3 +1,5 @@
+import numpy as np
+
 # Function to determine day or night
 def is_day(timestamp_series, lat, lon, tz, numeric=True):
     # Required to calculate Day/Night
