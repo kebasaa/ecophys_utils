@@ -78,9 +78,9 @@ def calculate_gpp(nee, reco):
     gpp = np.where(gpp < 0, 0, gpp)
     return(gpp)
 
-def calculate_wue(ET_mm_h, gpp_umol_m2_s1):
+def calculate_wue(gpp_umol_m2_s1, ET_mm_h):
     # Constants
-    M_C = 12.01070 # Molar mass C [g mol-1]
+    from .constants import M_C
     
     # Convert ET from mm h-1 to kgH2O m-2 s-1
     # 1 mm of water over 1 m² equals 1 kg, so per s, divide by 3600
