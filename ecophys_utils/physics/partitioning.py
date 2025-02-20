@@ -82,7 +82,7 @@ def calculate_gpp(nee, reco):
 
 def calculate_wue(gpp_umol_m2_s1, ET_mm_h):
     # Constants
-    from .constants import M_C
+    from ..units.constants import M_C
     
     # Convert ET from mm h-1 to kgH2O m-2 s-1
     # 1 mm of water over 1 m² equals 1 kg, so per s, divide by 3600

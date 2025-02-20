@@ -53,7 +53,7 @@ def convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa):
 # - https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
 def calculate_rho_dry_air(T_C, h2o_mmol_mol, P_Pa):
     # Constants
-    from .constants import R_dry_air, R, M_d, M_h2o
+    from from ..units.constants import R_dry_air, R, M_d, M_h2o
     
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
@@ -69,7 +69,7 @@ def calculate_rho_dry_air(T_C, h2o_mmol_mol, P_Pa):
 # Density of moist air
 def calculate_rho_moist_air(T_C, h2o_mmol_mol, P_Pa):
     # Constants
-    from .constants import R, M_d, M_h2o
+    from ..units.constants import R, M_d, M_h2o
     
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
@@ -100,7 +100,7 @@ def calculate_cp_dry_air(T_C):
 # https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
 def calculate_cp_moist_air(T_C, h2o_mmol_mol, P_Pa):
     # Constants
-    from .constants import R, M_d, M_h2o
+    from ..units.constants import R, M_d, M_h2o
     
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
@@ -133,7 +133,7 @@ def calculate_cp_moist_air(T_C, h2o_mmol_mol, P_Pa):
 # Calculates the flux of water
 def calculate_h2o_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, airflow_lpm, area_m2):
     # Constants
-    from .constants import R, M_d, M_h2o
+    from ..units.constants import R, M_d, M_h2o
     
     # Unit conversions
     T_K = T_C + 273.15 # Temperature in K
@@ -168,7 +168,7 @@ def calculate_h2o_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, ai
 # Inspired from LI-6400 manual: Uses the water flux because water changes the air density. If stomata are open and H2o is added, the gas is more 'diluted'
 def calculate_gas_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, gas_mol_mol_ambient, gas_mol_mol_chamber, airflow_lpm, area_m2):
     # Constants
-    from .constants import R, M_d, M_h2o
+    from ..units.constants import R, M_d, M_h2o
     
     # Unit conversions
     T_K = T_C + 273.15 # Temperature in K
@@ -248,7 +248,7 @@ def relative_uptake(f_cos_pmol_m2_s1, f_co2_umol_m2_s1, cos_pmol_mol_ambient, co
 
 def calculate_biochemical_conductance(T_leaf, LAI):
     # Constants
-    from .constants import R
+    from ..units.constants import R
     
     # Constants
     E0 = 40
