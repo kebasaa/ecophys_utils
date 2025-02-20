@@ -74,6 +74,36 @@ def respiration_from_nighttime(temp, dn_col='dn', nee_col='co2_flux'):
     temp['Reco'].interpolate(method='polynomial', order=2, limit=48, limit_direction='forward', axis=0, inplace=True)
     return(temp['Reco'])
     
+def respiration_from_nighttime_simple(temp, dn_col='dn', nee_col='co2_flux'):
+    import pandas as pd
+    import numpy as np
+    temp = temp.copy()
+    # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
+    temp['Reco'] = temp[nee_col]
+    temp.loc[temp[dn_col] == 1, ['Reco']] = np.nan
+    
+    # Create DOY
+    temp['doy'] = temp['timestamp'].dt.strftime('%j').astype(int)
+
+    # Night-time averageing (if there are more than 10 data points)
+    night_mean_df = temp[['doy','Reco']].groupby('doy').agg(['median','count']).reset_index()
+    night_mean_df.columns = ['_'.join(filter(None, col)).strip() for col in night_mean_df.columns]
+    night_mean_df.loc[night_mean_df['Reco_count'] < 10, 'Reco_median'] = np.nan
+    night_mean_df.drop(columns=['Reco_count'], inplace=True)
+    night_mean_df.rename(columns={'Reco_median': 'Reco'}, inplace=True)
+
+    # Remove now obsolete Reco column, so it can be imported from nighttime medians
+    temp.drop(columns=['Reco'], inplace=True)
+
+    # Make sure Reco gets added at midnight only
+    temp = temp.merge(night_mean_df, on='doy', how='left')
+    
+    return(temp['Reco'])
+    
+def calculate_nee(co2_flux, storage_flux):
+    nee = co2_flux + storage_flux
+    return(nee)
+    
 # Calculates NPP from GPP and ecosystem respiration
 def calculate_gpp(nee, reco):
     gpp = reco - nee
