@@ -53,7 +53,7 @@ def convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa):
 # - https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
 def calculate_rho_dry_air(T_C, h2o_mmol_mol, P_Pa):
     # Constants
-    from from ..units.constants import R_dry_air, R, M_d, M_h2o
+    from ..units.constants import R_dry_air, R, M_d, M_h2o
     
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
