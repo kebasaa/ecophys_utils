@@ -45,7 +45,7 @@ def create_doy_block_id(timestamps):
     return(temp['blockID'].values)
     
 # Calculate ecosystem respiration (Reco)
-def respiration_from_nighttime(temp, dn_col='dn', nee_col='co2_flux'):
+def respiration_from_nighttime_interpolated(temp, dn_col='dn', nee_col='nee'):
     import pandas as pd
     import numpy as np
     temp = temp.copy()
@@ -74,7 +74,7 @@ def respiration_from_nighttime(temp, dn_col='dn', nee_col='co2_flux'):
     temp['Reco'].interpolate(method='polynomial', order=2, limit=48, limit_direction='forward', axis=0, inplace=True)
     return(temp['Reco'])
     
-def respiration_from_nighttime_simple(temp, dn_col='dn', nee_col='co2_flux'):
+def respiration_from_nighttime_simple(temp, dn_col='dn', nee_col='nee'):
     import pandas as pd
     import numpy as np
     temp = temp.copy()
