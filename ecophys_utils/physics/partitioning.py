@@ -83,7 +83,7 @@ def respiration_from_nighttime_simple(temp, dn_col='dn', nee_col='nee'):
     temp.loc[temp[dn_col] == 1, ['Reco']] = np.nan
     
     # Create DOY
-    temp['doy'] = temp['timestamp'].dt.strftime('%j').astype(int)
+    temp['doy'] = temp['timestamp'].dt.strftime('%d%m%Y').astype(int)
 
     # Night-time averageing (if there are more than 10 data points)
     night_mean_df = temp[['doy','Reco']].groupby('doy').agg(['median','count']).reset_index()
