@@ -45,38 +45,48 @@ def create_doy_block_id(timestamps):
     return(temp['blockID'].values)
     
 # Calculate ecosystem respiration (Reco)
+# Note: Only valid in tropical ecosystems, does not take temperature or PAR into consideration
 def respiration_from_nighttime_simple_interpolated(temp, dn_col='dn', nee_col='nee'):
     import pandas as pd
     import numpy as np
+    import warnings
+    warnings.warn("This simple method is only valid in tropical ecosystems, it does not take temperature or PAR into consideration!")
+    
     temp = temp.copy()
     # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
     temp['Reco'] = temp[nee_col]
     temp.loc[temp[dn_col] == 1, ['Reco']] = np.nan
 
-    # Create day/night block IDs
+    # Create day/night block IDs, i.e. from sunset to sunrise is a block
     temp['blockID'] = create_doy_block_id(temp['timestamp'])
 
-    # Night-time averageing (if there are more than 10 data points)
+    # Night-time averaging (if there are more than 10 data points)
     night_mean_df = temp[['blockID','Reco']].groupby('blockID').agg(['median','count']).reset_index()
     night_mean_df.columns = ['_'.join(filter(None, col)).strip() for col in night_mean_df.columns]
     night_mean_df.loc[night_mean_df['Reco_count'] < 10, 'Reco_median'] = np.nan
     night_mean_df.drop(columns=['Reco_count'], inplace=True)
     night_mean_df.rename(columns={'Reco_median': 'Reco'}, inplace=True)
 
-    # Remove now obsolete Reco column, so it can be imported from nighttime medians
+    # Remove now obsolete Reco column which has missing data, so it can be re-created from nighttime medians
     temp.drop(columns=['Reco'], inplace=True)
 
-    # Make sure Reco gets added at midnight only
+    # Make sure median Reco gets added at midnight only
     temp = temp.merge(night_mean_df, on='blockID', how='left')
     temp.loc[temp['timestamp'].dt.strftime('%H%M') != '0000', 'Reco'] = np.nan
 
     # Now interpolate Reco for all other times (limited to 1 day, or 48 half-hours)
     temp['Reco'].interpolate(method='polynomial', order=2, limit=48, limit_direction='forward', axis=0, inplace=True)
     return(temp['Reco'])
-    
+
+# Calculate ecosystem respiration (Reco)
+# Simple interpolation of nighttime Reco data during daytime
+# Note: Only valid in tropical ecosystems, does not take temperature or PAR into consideration
 def respiration_from_nighttime_simple_blocks(temp, dn_col='dn', nee_col='nee'):
     import pandas as pd
     import numpy as np
+    import warnings
+    warnings.warn("This simple method is only valid in tropical ecosystems, it does not take temperature or PAR into consideration!")
+    
     temp = temp.copy()
     # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
     temp['Reco'] = temp[nee_col]
