@@ -152,7 +152,7 @@ def calculate_wue_umol_mmol(gpp_umol_m2_s1, h2o_mmol_m2_s1):
 # min_uStar_threshold = 0.01 in grasslands, 0.1 in forests minimum
 # na_uStar_threshold = 0.4 Threshold in case no threshold was found
 # threshold_if_none_found = False, should a threshold be inserted if none was found by the algorithm?
-def uStar_threshold_reichstein(df, Tair_col  = 'TA_1_1_1', dn_col    = 'day_night', uStar_col = 'u*', nee_col   = 'nee',
+def calculate_uStar_threshold_reichstein(df, Tair_col  = 'TA_1_1_1', dn_col    = 'day_night', uStar_col = 'u*', nee_col   = 'nee',
                                filter_threshold = 0.99, use_night_only = True, min_uStar_threshold = 0.01, na_uStar_threshold = 0.4, threshold_if_none_found = False):
     import pandas as pd
     import numpy as np
@@ -229,7 +229,7 @@ def uStar_threshold_reichstein(df, Tair_col  = 'TA_1_1_1', dn_col    = 'day_nigh
 
     return(uStar_threshold)
     
-def create_uStar_threshold_list_reichstein(df, groupby=['year', 'season'], 
+def create_seasonal_uStar_threshold_list(df, groupby=['year', 'season'], 
                                            Tair_col='TA_1_1_1', dn_col='day_night', uStar_col='u*', nee_col='nee'):
     groups = df.groupby(['year', 'season'])
     grouped_thresholds = groups.apply(
@@ -259,7 +259,7 @@ def create_uStar_threshold_list_reichstein(df, groupby=['year', 'season'],
     return(thresholds_df)
 
 # Remove seasons with too few data points, then calculate the threshold
-def calculate_threshold(thresholds_df, missing_fraction = 0.6, use_mean=True):
+def calculate_overall_uStar_threshold(thresholds_df, missing_fraction = 1, use_mean=True):
     max_rowcount = thresholds_df['non_na_row_count'].max()
     if(use_mean):
         threshold = thresholds_df.loc[thresholds_df['non_na_row_count'] > max_rowcount*missing_fraction,'uStar_threshold'].mean()
