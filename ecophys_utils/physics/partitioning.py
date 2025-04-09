@@ -152,7 +152,7 @@ def calculate_wue_umol_mmol(gpp_umol_m2_s1, h2o_mmol_m2_s1):
 # min_uStar_threshold = 0.01 in grasslands, 0.1 in forests minimum
 # na_uStar_threshold = 0.4 Threshold in case no threshold was found
 # threshold_if_none_found = False, should a threshold be inserted if none was found by the algorithm?
-def uStar_filtering_reichstein(df, Tair_col  = 'TA_1_1_1', dn_col    = 'day_night', uStar_col = 'u*', nee_col   = 'nee',
+def uStar_threshold_reichstein(df, Tair_col  = 'TA_1_1_1', dn_col    = 'day_night', uStar_col = 'u*', nee_col   = 'nee',
                                filter_threshold = 0.99, use_night_only = True, min_uStar_threshold = 0.01, na_uStar_threshold = 0.4, threshold_if_none_found = False):
     import pandas as pd
     import numpy as np
@@ -228,3 +228,41 @@ def uStar_filtering_reichstein(df, Tair_col  = 'TA_1_1_1', dn_col    = 'day_nigh
     uStar_threshold = thresholds_by_Tair.median()
 
     return(uStar_threshold)
+    
+def create_uStar_threshold_list_reichstein(df, groupby=['year', 'season'], 
+                                           Tair_col='TA_1_1_1', dn_col='day_night', uStar_col='u*', nee_col='nee'):
+    groups = df.groupby(['year', 'season'])
+    grouped_thresholds = groups.apply(
+        lambda group: uStar_filtering_reichstein(group,
+                                             Tair_col=Tair_col, 
+                                             dn_col=dn_col, 
+                                             uStar_col=uStar_col, 
+                                             nee_col=nee_col,
+                                             filter_threshold=0.99, 
+                                             use_night_only=True, 
+                                             min_uStar_threshold=0.01, 
+                                             na_uStar_threshold=0.4, 
+                                             threshold_if_none_found=False)
+    )
+    thresholds_df = grouped_thresholds.reset_index()
+
+    # Count rows of data for each group, for relevant columns only
+    # Take the maximum number of rows and then some % of those as a limit
+    relevant_cols = [Tair_col, dn_col, uStar_col, nee_col]
+    grouped_rowcounts = groups.apply(lambda grp: grp[relevant_cols].dropna().shape[0])\
+                              .reset_index(name='non_na_row_count')
+    
+    # Create pandas dataframe
+    thresholds_df.columns = groupby + ['uStar_threshold']
+    thresholds_df = thresholds_df.merge(grouped_rowcounts, on=groupby)
+
+    return(thresholds_df)
+
+# Remove seasons with too few data points, then calculate the threshold
+def calculate_threshold(thresholds_df, missing_fraction = 0.6, use_mean=True):
+    max_rowcount = thresholds_df['non_na_row_count'].max()
+    if(use_mean):
+        threshold = thresholds_df.loc[thresholds_df['non_na_row_count'] > max_rowcount*missing_fraction,'uStar_threshold'].mean()
+    else:
+        threshold = thresholds_df.loc[thresholds_df['non_na_row_count'] > max_rowcount*missing_fraction,'uStar_threshold'].max()
+    return(threshold)
