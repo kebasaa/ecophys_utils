@@ -144,3 +144,87 @@ def calculate_wue_umol_mmol(gpp_umol_m2_s1, h2o_mmol_m2_s1):
     wue_umolC_mmolH2O = np.where(np.isnan(wue_umolC_mmolH2O) | np.isinf(wue_umolC_mmolH2O), 0, wue_umolC_mmolH2O)
     
     return(wue_umolC_mmolH2O)
+
+# uStar filtering (similar to Reichstein et al. 2005 & Papale et al. 2006) function
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# filter_threshold = 0.99 determines at what % of NEE of the combined higher u* classes we accept a threshold
+# use_night_only = True (Night-time only)
+# min_uStar_threshold = 0.01 in grasslands, 0.1 in forests minimum
+# na_uStar_threshold = 0.4 Threshold in case no threshold was found
+# threshold_if_none_found = False, should a threshold be inserted if none was found by the algorithm?
+def uStar_filtering_reichstein(df, Tair_col  = 'TA_1_1_1', dn_col    = 'day_night', uStar_col = 'u*', nee_col   = 'nee',
+                               filter_threshold = 0.99, use_night_only = True, min_uStar_threshold = 0.01, na_uStar_threshold = 0.4, threshold_if_none_found = False):
+    import pandas as pd
+    import numpy as np
+    from scipy import stats
+
+    # Exclude rows where Tair is NA.
+    mask = ~df[Tair_col].isna()
+    temp = df[mask].copy()
+
+    # Optionally use only night-time data (make sure to reassign!)
+    if use_night_only:
+        temp = temp.loc[temp[dn_col] == 0].copy()
+
+    # Create 6 temperature classes based on quantiles.
+    temp['Tair_class'] = pd.qcut(temp[Tair_col], 6, labels=False)
+
+    # Within each Tair class, create 20 uStar classes.
+    # We use groupby on Tair_class together with a lambda to avoid an explicit loop.
+    temp['uStar_class'] = temp.groupby('Tair_class')[uStar_col].transform(
+        lambda x: pd.qcut(x, 20, labels=False, duplicates='drop')
+    )
+
+    # Helper function for group processing:
+    # For each temperature class (group), perform the linear regression between Tair and uStar.
+    # If the absolute r-value is below 0.4, calculate the threshold by comparing mean NEE in 
+    # each uStar bin versus the combination of all higher uStar bins.
+    def compute_uStar_threshold(group):
+        # Run linear regression on the entire group.
+        res = stats.linregress(group[Tair_col], group[uStar_col])
+        # If the correlation is too strong, do not compute a threshold.
+        if abs(res.rvalue) >= 0.4:
+            return np.nan
+
+        # Initialise
+        current_threshold = np.nan
+        # Get sorted unique uStar_class values.
+        # We drop NaN in case 'duplicates' were dropped during qcut.
+        sorted_uStar_class = sorted(group['uStar_class'].dropna().unique())
+
+        # Loop over each uStar_class except the highest (because it has no "higher" classes).
+        for current_uStar_class in sorted_uStar_class[:-1]:
+            # Create a mask for the current and higher classes.
+            mask_current = group['uStar_class'] == current_uStar_class
+            mask_higher  = group['uStar_class'] > current_uStar_class
+
+            # Calculate mean NEE for current and combined higher uStar classes.
+            F_current = group.loc[mask_current, nee_col].mean()
+            F_higher  = group.loc[mask_higher, nee_col].mean()
+
+            # Check the filter condition; if true, take the mean uStar of the higher classes.
+            if F_current >= filter_threshold * F_higher:
+                current_threshold = group.loc[mask_current, uStar_col].mean()
+                # This stops the for loop so that the lowest threshold that meets
+                # the criterion is used.
+                break
+    
+        # In strict mode, you may optionally set a threshold if no value met the condition.
+        if pd.isna(current_threshold) and threshold_if_none_found:
+            current_threshold = na_uStar_threshold
+        if(current_threshold < min_uStar_threshold):
+            current_threshold = min_uStar_threshold
+
+        # Enforce the minimum allowable threshold.
+        if not pd.isna(current_threshold):
+            current_threshold = max(current_threshold, min_uStar_threshold)
+        return current_threshold
+
+    # Apply across Tair classes:
+    # Use groupby to process each Tair_class.
+    thresholds_by_Tair = temp.groupby('Tair_class').apply(compute_uStar_threshold)
+
+    # Compute the final uStar threshold as the median of thresholds across classes.
+    uStar_threshold = thresholds_by_Tair.median()
+
+    return(uStar_threshold)
