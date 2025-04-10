@@ -231,7 +231,7 @@ def calculate_uStar_threshold_reichstein(df, Tair_col  = 'TA_1_1_1', dn_col    =
     
 def create_seasonal_uStar_threshold_list(df, groupby=['year', 'season'], 
                                            Tair_col='TA_1_1_1', dn_col='day_night', uStar_col='u*', nee_col='nee'):
-    groups = df.groupby(['year', 'season'])
+    groups = df.groupby(groupby)
     grouped_thresholds = groups.apply(
         lambda group: calculate_uStar_threshold_reichstein(group,
                                              Tair_col=Tair_col, 
