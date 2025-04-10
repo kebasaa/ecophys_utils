@@ -27,26 +27,28 @@ def load_li6800(input_fn, silent=True):
             file_date = line[12:31]
             capture_metadata = False
         # Detect the beginning of the metadata
-        if line.startswith('"OPEN'):
+        if line.startswith('SysConst'):
             capture_metadata = True
 
         # Begin capturing data lines
-        if line.startswith('$STARTOFDATA$'):
+        if line.startswith('\t'):
             capture_data = True
         elif capture_data and not line.startswith('"'):
             # Append non-header (non-quoted) lines once data capturing has started
             data_lines.append(line)
-        elif line.startswith('"Obs"'):
+        elif line.startswith('obs'):
             # Get the header
             header = line.replace('"', '').split('\t')
+            header = header.replace('Δ', 'd')
             header = sanitize_column_names(header)
 
     # Join & convert into df
     data_str = "\n".join(data_lines)
     df = pd.read_csv(StringIO(data_str), sep='\t', header=None, names=header)
+    df.drop(df.columns[-1], axis=1, inplace=True) # Remove last (empty) column
 
     # Add file date & convert to timestamp
-    df['timestamp'] = pd.to_datetime(file_date + ' ' + df['HHMMSS'].astype(str), format='%b %d %Y %H:%M:%S')
+    df['timestamp'] = pd.to_datetime(df['date'] + ' ' + df['hhmmss'].astype(str), format='%Y%m%d %H:%M:%S')
 
     # Extract the file name
     filename = os.path.basename(input_fn)
@@ -59,7 +61,7 @@ def load_li6800(input_fn, silent=True):
     df.insert(0, col.name, col, allow_duplicates=True)
 
     # Remove the HHMMSS column (obsolete after creating the timestamp).
-    df.drop(columns='HHMMSS', inplace=True)
+    df.drop(columns='hhmmss', inplace=True)
     
     return(df)
 
