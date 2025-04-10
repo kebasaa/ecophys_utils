@@ -9,7 +9,7 @@ def load_li6800(input_fn, silent=True):
     from io import StringIO
 
     # Read file line by line
-    with open(input_fn, 'r') as f:
+    with open(input_fn, 'r', encoding='utf-8') as f:
         lines = [line.rstrip('\n') for line in f]
 
     # Prepare for storage of data
@@ -38,8 +38,7 @@ def load_li6800(input_fn, silent=True):
             data_lines.append(line)
         elif line.startswith('obs'):
             # Get the header
-            header = line.replace('"', '').split('\t')
-            header = header.replace('Δ', 'd')
+            header = line.replace('"', '').replace('Δ', 'd').split('\t')
             header = sanitize_column_names(header)
 
     # Join & convert into df
@@ -47,8 +46,8 @@ def load_li6800(input_fn, silent=True):
     df = pd.read_csv(StringIO(data_str), sep='\t', header=None, names=header)
     df.drop(df.columns[-1], axis=1, inplace=True) # Remove last (empty) column
 
-    # Add file date & convert to timestamp
-    df['timestamp'] = pd.to_datetime(df['date'] + ' ' + df['hhmmss'].astype(str), format='%Y%m%d %H:%M:%S')
+    # Convert to timestamp
+    df['timestamp'] = pd.to_datetime(df['date'], format='%Y%m%d %H:%M:%S')
 
     # Extract the file name
     filename = os.path.basename(input_fn)
