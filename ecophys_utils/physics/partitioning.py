@@ -266,3 +266,42 @@ def calculate_overall_uStar_threshold(thresholds_df, missing_fraction = 1, use_m
     else:
         threshold = thresholds_df.loc[thresholds_df['non_na_row_count'] > max_rowcount*missing_fraction,'uStar_threshold'].max()
     return(threshold)
+    
+def uStar_filtering_wrapper(temp, timestamp_col='timestamp', hemisphere='north', apply_to_cols=['nee','co2_flux','co2_strg','h2o_flux','H','LE'], silent=False):
+    temp = temp.copy()
+    if(not silent):
+        print('Calculating u* filter threshold, following Reichstein et al. (2005):
+
+    # Add year variable
+    temp['year']  = temp[timestamp_col].dt.year
+    temp['month'] = temp[timestamp_col].dt.month
+    # Create season
+    if(hemisphere == 'north'):
+        temp['season'] = create_season_northern_hemisphere(temp[timestamp_col])
+    if(hemisphere == 'north'):
+        temp['season'] = create_season_southern_hemisphere(temp[timestamp_col])
+    else:
+        print('Error: Choose north or south as a hemisphere!')
+        return
+
+    # Calculate seasonal thresholds
+    thresholds_df  = create_seasonal_uStar_threshold_list(temp, groupby=['year', 'season'])
+    if(not silent):
+        print('  - u* thresholds, by season:')
+    display(thresholds_df)
+
+    # Calculate overall threshold
+    threshold_overall  = calculate_overall_uStar_threshold(thresholds_df, missing_fraction = 0.75, use_mean=True)
+    if(not silent):
+        print('  - Final u* threshold:  ', threshold_overall)
+
+    # Apply thresholds, remove NEE, LE, H
+    if(not silent):
+        print('  - Applying to:', apply_to_cols)
+    for col in apply_to_cols:
+        temp[col + '_f'] = temp[col]
+        temp.loc[(temp['u*'] <= threshold_overall), col + '_f'] = np.nan
+
+    if(not silent):
+        print('Done applying u* filter...')
+    return(temp)
