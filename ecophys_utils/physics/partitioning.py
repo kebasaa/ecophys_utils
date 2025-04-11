@@ -305,3 +305,135 @@ def uStar_filtering_wrapper(temp, timestamp_col='timestamp', hemisphere='north',
     if(not silent):
         print('Done applying u* filter...')
     return(temp)
+    
+# Respiration partitioning (Reichstein et al. 2005) using the Lloyd & Taylor model (1994)
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Lloyd-Taylor (1994) respiration model
+# Parameters:
+# - T: air temperature (°C)
+# - R_ref: respiration at reference temperature
+# - E0: temperature sensitivity parameter
+# - T_ref: reference temperature (default 15 °C)
+# - T0: temperature constant (default -46.02 °C)
+# Returns:
+# - Modeled respiration R
+def lloyd_taylor(T, R_ref, E0, T_ref=15.0, T0=-46.02):
+    return(R_ref * np.exp(E0 * ((1.0 / (T_ref - T0)) - (1.0 / (T - T0)))))
+
+def remove_nas(temp, cols):
+    filtered_df = temp[temp[cols].notna().all(axis=1)]
+    return(filtered_df)
+
+# Step 1: Fit E0 using the Lloyd-Taylor model (1994) over the entire night-time dataset
+# This function fits both parameters (R_ref & E0) to allow for a later fit of R_ref
+def fit_E0(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f', initial_guess=(1.0, 300.0)):
+    import pandas as pd
+    # Extract night-time and remove NAs
+    temp = temp[temp[dn_col] == 0].copy()
+    filtered_df = remove_nas(temp, cols = [Tair_col, nee_col])
+
+    Tair = filtered_df[Tair_col].values
+    Reco = filtered_df[nee_col].values
+    
+    # Using curve_fit to fit the lloyd_taylor model.
+    popt, pcov = curve_fit(lloyd_taylor, Tair, Reco, p0=initial_guess)
+    R_ref_fit, E0_fit = popt
+    return R_ref_fit, E0_fit
+
+# Step 2: Estimate R_ref in overlapping moving windows of night-time data, keeping E0 fixed to previous fit.
+# Every window spans `window_days` days and windows are shifted by `shift_days` days.
+# Returns a DataFrame with window midpoints and fitted R_ref values.
+def estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col='TA_1_1_1',
+                                             nee_col='nee_f', E0_col='E0_fit', window_days=15, shift_days=5): #E0_fixed=E0_fit
+    from scipy.optimize import curve_fit
+    import pandas as pd
+    import numpy as np
+
+    # Filter for night-time data and remove NA values.
+    temp = temp[temp[dn_col] == 0].copy()
+    temp = remove_nas(temp, cols=[Tair_col, nee_col])
+    
+    # Define window and shift sizes as timedeltas.
+    window_size = pd.Timedelta(days=window_days)
+    shift_size = pd.Timedelta(days=shift_days)
+    
+    # Determine the overall time range.
+    start_time = temp['timestamp'].min()
+    end_time = temp['timestamp'].max()
+    
+    # Generate window start times such that the entire window fits within the data range.
+    window_starts = []
+    current_start = start_time
+    while current_start + window_size <= end_time:
+        window_starts.append(current_start)
+        current_start += shift_size
+
+    # Define a helper function for curve_fit that fixes E0 to E0_fixed.
+    def lloyd_taylor_fixed(Tair, R_ref, E0_fixed):
+        return lloyd_taylor(Tair, R_ref, E0_fixed)
+    
+    # Define a function to process a single window.
+    def process_window(window_start):
+        window_end = window_start + window_size
+        window_data = temp[(temp['timestamp'] >= window_start) & (temp['timestamp'] < window_end)]
+        
+        # Require a minimum temperature range and number of data points.
+        if (len(window_data) < 10) or ((window_data[Tair_col].max() - window_data[Tair_col].min()) < 5):
+            return None
+        
+        # Fit R_ref with E0 fixed.
+        try:
+            T_window = window_data[Tair_col].values
+            Reco_window = window_data[nee_col].values
+            E0_fixed = window_data[E0_col].mean() # NEW
+            #popt, _ = curve_fit(lloyd_taylor_fixed, T_window, Reco_window, p0=[1.0])
+            popt, _ = curve_fit(lambda T, R: lloyd_taylor_fixed(T, R, E0_fixed), T_window, Reco_window, p0=[1.0])
+            R_ref_window = popt[0]
+            #if(R_ref_window < 0.5):
+            #    R_ref_window = np.nan
+            # Calculate the midpoint of the window.
+            window_midpoint = window_start + window_size / 2
+            return pd.Series({'timestamp': window_midpoint, 'R_ref': R_ref_window, 'E0': E0_fixed})
+        except RuntimeError:
+            # If the fitting fails, simply return None.
+            return None
+
+    # Apply the processing function on each window.
+    results = [process_window(ws) for ws in window_starts]
+    
+    # Remove None results and create a DataFrame.
+    R_ref_df = pd.DataFrame([res for res in results if res is not None])
+    R_ref_df['R_ref'] = R_ref_df['R_ref'].astype(float)
+    R_ref_df['E0'] = R_ref_df['E0'].astype(float)
+    R_ref_df['timestamp'] = pd.to_datetime(R_ref_df['timestamp'], unit='ns')
+    #R_ref_df['E0'] = E0_fixed
+    return(R_ref_df)
+
+# Step 3: Interpolate the R_ref estimates to obtain a continuous series for the full dataset.
+def interpolate_R_ref(full_df, R_ref_df):
+    import pandas as pd
+    
+    full_df = full_df.copy()
+    R_ref_df = R_ref_df.copy()
+    # Convert to datetime and sort the full dataframe
+    full_df['timestamp'] = pd.to_datetime(full_df['timestamp'])
+    full_df = full_df.sort_values('timestamp')
+    
+    # Convert the R_ref_df timestamp column to datetime and sort
+    R_ref_df['timestamp'] = pd.to_datetime(R_ref_df['timestamp'])
+    R_ref_df = R_ref_df.sort_values('timestamp')
+    
+    # Set 'timestamp' as the index for both dataframes
+    full_df.set_index('timestamp', inplace=True)
+    R_ref_df.set_index('timestamp', inplace=True)
+    
+    # Reindex the R_ref dataframe with the full range of timestamps
+    R_ref_full = R_ref_df.reindex(full_df.index)
+    
+    # Interpolate the missing R_ref values using time-based interpolation.
+    R_ref_full['R_ref'] = R_ref_full['R_ref'].interpolate(
+        method = 'time',
+        limit_direction='both'
+    )
+    return(R_ref_full['R_ref'].values)
