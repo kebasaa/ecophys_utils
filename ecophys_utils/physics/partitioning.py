@@ -45,12 +45,12 @@ def create_doy_block_id(timestamps):
     return(temp['blockID'].values)
     
 # Calculate ecosystem respiration (Reco)
-# Note: Only valid in tropical ecosystems, does not take temperature or PAR into consideration
+# Note: Only valid in tropical ecosystems, does not take temperature or PAR into account
 def respiration_from_nighttime_simple_interpolated(temp, dn_col='dn', nee_col='nee'):
     import pandas as pd
     import numpy as np
     import warnings
-    warnings.warn("This simple method is only valid in tropical ecosystems, it does not take temperature or PAR into consideration!")
+    warnings.warn("This simple method is only valid in tropical ecosystems, it does not take temperature or PAR into account!")
     
     temp = temp.copy()
     # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
@@ -80,12 +80,12 @@ def respiration_from_nighttime_simple_interpolated(temp, dn_col='dn', nee_col='n
 
 # Calculate ecosystem respiration (Reco)
 # Simple interpolation of nighttime Reco data during daytime
-# Note: Only valid in tropical ecosystems, does not take temperature or PAR into consideration
+# Note: Only valid in tropical ecosystems, does not take temperature or PAR into account
 def respiration_from_nighttime_simple_blocks(temp, dn_col='dn', nee_col='nee'):
     import pandas as pd
     import numpy as np
     import warnings
-    warnings.warn("This simple method is only valid in tropical ecosystems, it does not take temperature or PAR into consideration!")
+    warnings.warn("This simple method is only valid in tropical ecosystems, it does not take temperature or PAR into account!")
     
     temp = temp.copy()
     # Copy the GPP, then remove daytime data, for ecosystem respiration (Reco)
