@@ -344,8 +344,8 @@ def fit_E0(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f', initi
 # Step 2: Estimate R_ref in overlapping moving windows of night-time data, keeping E0 fixed to previous fit.
 # Every window spans `window_days` days and windows are shifted by `shift_days` days.
 # Returns a DataFrame with window midpoints and fitted R_ref values.
-def estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col='TA_1_1_1',
-                                             nee_col='nee_f', E0_col='E0_fit', window_days=15, shift_days=5): #E0_fixed=E0_fit
+def estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f',
+                                             timestamp_col='timestamp', E0_col='E0_fit', window_days=15, shift_days=5): #E0_fixed=E0_fit
     from scipy.optimize import curve_fit
     import pandas as pd
     import numpy as np
@@ -359,8 +359,8 @@ def estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col=
     shift_size = pd.Timedelta(days=shift_days)
     
     # Determine the overall time range.
-    start_time = temp['timestamp'].min()
-    end_time = temp['timestamp'].max()
+    start_time = temp[timestamp_col].min()
+    end_time = temp[timestamp_col].max()
     
     # Generate window start times such that the entire window fits within the data range.
     window_starts = []
@@ -376,7 +376,7 @@ def estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col=
     # Define a function to process a single window.
     def process_window(window_start):
         window_end = window_start + window_size
-        window_data = temp[(temp['timestamp'] >= window_start) & (temp['timestamp'] < window_end)]
+        window_data = temp[(temp[timestamp_col] >= window_start) & (temp[timestamp_col] < window_end)]
         
         # Require a minimum temperature range and number of data points.
         if (len(window_data) < 10) or ((window_data[Tair_col].max() - window_data[Tair_col].min()) < 5):
@@ -394,7 +394,7 @@ def estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col=
             #    R_ref_window = np.nan
             # Calculate the midpoint of the window.
             window_midpoint = window_start + window_size / 2
-            return pd.Series({'timestamp': window_midpoint, 'R_ref': R_ref_window, 'E0': E0_fixed})
+            return pd.Series({timestamp_col: window_midpoint, 'R_ref': R_ref_window, 'E0': E0_fixed})
         except RuntimeError:
             # If the fitting fails, simply return None.
             return None
@@ -406,27 +406,27 @@ def estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col=
     R_ref_df = pd.DataFrame([res for res in results if res is not None])
     R_ref_df['R_ref'] = R_ref_df['R_ref'].astype(float)
     R_ref_df['E0'] = R_ref_df['E0'].astype(float)
-    R_ref_df['timestamp'] = pd.to_datetime(R_ref_df['timestamp'], unit='ns')
+    R_ref_df[timestamp_col] = pd.to_datetime(R_ref_df[timestamp_col], unit='ns')
     #R_ref_df['E0'] = E0_fixed
     return(R_ref_df)
 
 # Step 3: Interpolate the R_ref estimates to obtain a continuous series for the full dataset.
-def interpolate_R_ref(full_df, R_ref_df):
+def interpolate_R_ref(full_df, R_ref_df, timestamp_col='timestamp'):
     import pandas as pd
     
     full_df = full_df.copy()
     R_ref_df = R_ref_df.copy()
     # Convert to datetime and sort the full dataframe
-    full_df['timestamp'] = pd.to_datetime(full_df['timestamp'])
-    full_df = full_df.sort_values('timestamp')
+    full_df[timestamp_col] = pd.to_datetime(full_df[timestamp_col])
+    full_df = full_df.sort_values(timestamp_col)
     
     # Convert the R_ref_df timestamp column to datetime and sort
-    R_ref_df['timestamp'] = pd.to_datetime(R_ref_df['timestamp'])
-    R_ref_df = R_ref_df.sort_values('timestamp')
+    R_ref_df[timestamp_col] = pd.to_datetime(R_ref_df[timestamp_col])
+    R_ref_df = R_ref_df.sort_values(timestamp_col)
     
     # Set 'timestamp' as the index for both dataframes
-    full_df.set_index('timestamp', inplace=True)
-    R_ref_df.set_index('timestamp', inplace=True)
+    full_df.set_index(timestamp_col, inplace=True)
+    R_ref_df.set_index(timestamp_col, inplace=True)
     
     # Reindex the R_ref dataframe with the full range of timestamps
     R_ref_full = R_ref_df.reindex(full_df.index)
@@ -438,11 +438,11 @@ def interpolate_R_ref(full_df, R_ref_df):
     )
     return(R_ref_full['R_ref'].values)
     
-def partitioning_reichstein_wrapper(temp, grouping_col='year'):
+def partitioning_reichstein_wrapper(temp, timestamp_col='timestamp', dn_col='day_night', Tair_col='Tair', nee_col='nee_f', grouping_col='year'):
     # Step 1: Estimate E0 for each large (e.g. year) group
     # 1a) Define a wrapper function to use with .apply()
     def apply_fit_E0(group):
-        R_ref_initial, E0_fit = fit_E0(group, Tair_col='Tair')
+        R_ref_initial, E0_fit = fit_E0(group, Tair_col=Tair_col)
         n = len(group)
         return pd.Series({
             'R_ref_initial': R_ref_initial,
@@ -451,10 +451,10 @@ def partitioning_reichstein_wrapper(temp, grouping_col='year'):
         })
     
     # 1b) Apply the function to each year group
-    result_E0 = temp.groupby('resp-year').apply(apply_fit_E0).reset_index()
+    result_E0 = temp.groupby(grouping_col).apply(apply_fit_E0).reset_index()
 
     # 1c) Merge back into temp
-    temp = temp.merge(result_E0[['resp-year','E0_fit']], on='resp-year', how='outer')
+    temp = temp.merge(result_E0[[grouping_col,'E0_fit']], on=grouping_col, how='outer')
 
     # Step 2: Estimate R_ref for each smaller group in moving windows
     # 2a) Define the wrapper function
@@ -462,29 +462,29 @@ def partitioning_reichstein_wrapper(temp, grouping_col='year'):
         # Call the function with the appropriate columns and parameters
         R_ref_df = estimate_R_ref_moving_window_overlapping(
             group,
-            dn_col='day_night',
-            Tair_col='Tair',
-            nee_col='nee_f',
+            dn_col=dn_col,
+            Tair_col=Tair_col,
+            nee_col=nee_col,
             E0_col='E0',
             window_days=15,
             shift_days=5
         )
-        R_ref_df['resp-year'] = group.name
+        R_ref_df[grouping_col] = group.name
         return(R_ref_df)
 
     # 2b) Group by 'year' and apply the wrapper function
-    result_R_ref = temp.groupby('resp-year').apply(apply_estimate_R_ref).reset_index(drop=True)
+    result_R_ref = temp.groupby(grouping_col).apply(apply_estimate_R_ref).reset_index(drop=True)
 
     # Step 3: Interpolate R_ref across the year (or other grouping variable)
     # 3a) Define the wrapper function
     def interpolate_group(group):
         year = group.name
-        R_ref_group = result_R_ref.loc[result_R_ref['resp-year'] == year]
+        R_ref_group = result_R_ref.loc[result_R_ref[grouping_col] == year]
         interpolated_values = interpolate_R_ref(group, R_ref_group)
         group = group.copy()
-        group['R_ref_interpolated'] = interpolated_values
+        group['R_ref'] = interpolated_values
         return(group)
     # 3b) Group and apply the wrapper function
-    lloyd_taylor_params = temp.groupby('resp-year').apply(interpolate_group).reset_index(drop=True)
+    lloyd_taylor_params = temp.groupby(grouping_col).apply(interpolate_group).reset_index(drop=True)
 
-    return(lloyd_taylor_params[['timestamp','E0','R_ref']])
+    return(lloyd_taylor_params[[timestamp_col,'E0','R_ref']])
