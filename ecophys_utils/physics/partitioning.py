@@ -446,7 +446,7 @@ def partitioning_reichstein_wrapper(temp, grouping_col='year'):
         n = len(group)
         return pd.Series({
             'R_ref_initial': R_ref_initial,
-            'E0_fit': E0_fit,
+            'E0': E0_fit,
             'n_rows': n
         })
     
@@ -455,8 +455,6 @@ def partitioning_reichstein_wrapper(temp, grouping_col='year'):
 
     # 1c) Merge back into temp
     temp = temp.merge(result_E0[['resp-year','E0_fit']], on='resp-year', how='outer')
-
-    # TODO: SEASONS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     # Step 2: Estimate R_ref for each smaller group in moving windows
     # 2a) Define the wrapper function
@@ -467,7 +465,7 @@ def partitioning_reichstein_wrapper(temp, grouping_col='year'):
             dn_col='day_night',
             Tair_col='Tair',
             nee_col='nee_f',
-            E0_col='E0_fit',
+            E0_col='E0',
             window_days=15,
             shift_days=5
         )
@@ -487,6 +485,6 @@ def partitioning_reichstein_wrapper(temp, grouping_col='year'):
         group['R_ref_interpolated'] = interpolated_values
         return(group)
     # 3b) Group and apply the wrapper function
-    result = temp.groupby('resp-year').apply(interpolate_group).reset_index(drop=True)
+    lloyd_taylor_params = temp.groupby('resp-year').apply(interpolate_group).reset_index(drop=True)
 
-    return(result)
+    return(lloyd_taylor_params[['timestamp','E0','R_ref']])
