@@ -270,7 +270,7 @@ def calculate_overall_uStar_threshold(thresholds_df, missing_fraction = 1, use_m
 def uStar_filtering_wrapper(temp, timestamp_col='timestamp', hemisphere='north', apply_to_cols=['nee','co2_flux','co2_strg','h2o_flux','H','LE'], silent=False):
     temp = temp.copy()
     if(not silent):
-        print('Calculating u* filter threshold, following Reichstein et al. (2005):
+        print('Calculating u* filter threshold, following Reichstein et al. (2005):')
 
     # Add year variable
     temp['year']  = temp[timestamp_col].dt.year
@@ -437,3 +437,56 @@ def interpolate_R_ref(full_df, R_ref_df):
         limit_direction='both'
     )
     return(R_ref_full['R_ref'].values)
+    
+def partitioning_reichstein_wrapper(temp, grouping_col='year'):
+    # Step 1: Estimate E0 for each large (e.g. year) group
+    # 1a) Define a wrapper function to use with .apply()
+    def apply_fit_E0(group):
+        R_ref_initial, E0_fit = fit_E0(group, Tair_col='Tair')
+        n = len(group)
+        return pd.Series({
+            'R_ref_initial': R_ref_initial,
+            'E0_fit': E0_fit,
+            'n_rows': n
+        })
+    
+    # 1b) Apply the function to each year group
+    result_E0 = temp.groupby('resp-year').apply(apply_fit_E0).reset_index()
+
+    # 1c) Merge back into temp
+    temp = temp.merge(result_E0[['resp-year','E0_fit']], on='resp-year', how='outer')
+
+    # TODO: SEASONS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    # Step 2: Estimate R_ref for each smaller group in moving windows
+    # 2a) Define the wrapper function
+    def apply_estimate_R_ref(group):
+        # Call the function with the appropriate columns and parameters
+        R_ref_df = estimate_R_ref_moving_window_overlapping(
+            group,
+            dn_col='day_night',
+            Tair_col='Tair',
+            nee_col='nee_f',
+            E0_col='E0_fit',
+            window_days=15,
+            shift_days=5
+        )
+        R_ref_df['resp-year'] = group.name
+        return(R_ref_df)
+
+    # 2b) Group by 'year' and apply the wrapper function
+    result_R_ref = temp.groupby('resp-year').apply(apply_estimate_R_ref).reset_index(drop=True)
+
+    # Step 3: Interpolate R_ref across the year (or other grouping variable)
+    # 3a) Define the wrapper function
+    def interpolate_group(group):
+        year = group.name
+        R_ref_group = result_R_ref.loc[result_R_ref['resp-year'] == year]
+        interpolated_values = interpolate_R_ref(group, R_ref_group)
+        group = group.copy()
+        group['R_ref_interpolated'] = interpolated_values
+        return(group)
+    # 3b) Group and apply the wrapper function
+    result = temp.groupby('resp-year').apply(interpolate_group).reset_index(drop=True)
+
+    return(result)
