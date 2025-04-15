@@ -441,6 +441,8 @@ def interpolate_R_ref(full_df, R_ref_df, timestamp_col='timestamp'):
     return(R_ref_full['R_ref'].values)
     
 def partitioning_reichstein_wrapper(temp, timestamp_col='timestamp', dn_col='day_night', Tair_col='Tair', nee_col='nee_f', grouping_col='year'):
+    import numpy as np
+    import pandas as pd
     # Step 1: Estimate E0 for each large (e.g. year) group
     # 1a) Define a wrapper function to use with .apply()
     def apply_fit_E0(group):
