@@ -22,6 +22,8 @@ def flagged_data_removal_ep(temp, col, flag, silent=False):
     
 # Remove highly variable days above a certain threshold
 def remove_highly_variable_days(temp, col='co2_flux', year=2019, threshold=75, silent=False):
+    import numpy as np
+    import pandas as pd
     temp = temp.copy()
 
     temp['day'] = temp['timestamp'].dt.strftime('%Y-%m-%d')
@@ -48,6 +50,8 @@ def remove_highly_variable_days(temp, col='co2_flux', year=2019, threshold=75, s
 
 # Remove datapoints >2 stddevs from daily median
 def remove_outliers(temp, col='co2_flux', stdevs=2, silent=False):
+    import numpy as np
+    import pandas as pd
     temp = temp.copy()
 
     temp['day'] = temp['timestamp'].dt.strftime('%Y-%m-%d')

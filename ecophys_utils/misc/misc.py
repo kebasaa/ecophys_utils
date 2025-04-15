@@ -26,7 +26,7 @@ def sanitize_column_names(columns):
 # Creates season labels based on 3-month seasons, not synoptic
 def create_season_southern_hemisphere(timestamps):
     import warnings
-    warnings.warn("Creates season labels based on 3-month seasons, not synoptic", UserWarning)
+    warnings.warn("Creates season labels based on 3-month seasons, not a synoptic definition", UserWarning)
     month_to_season = {
         12: "Summer", 1: "Summer", 2: "Summer",
         3: "Autumn", 4: "Autumn", 5: "Autumn",
@@ -37,7 +37,7 @@ def create_season_southern_hemisphere(timestamps):
 
 def create_season_northern_hemisphere(timestamps):
     import warnings
-    warnings.warn("Creates season labels based on 3-month seasons, not synoptic", UserWarning)
+    warnings.warn("Creates season labels based on 3-month seasons, not a synoptic definition", UserWarning)
     month_to_season = {
         12: "Winter", 1: "Winter", 2: "Winter",
         3: "Spring", 4: "Spring", 5: "Spring",

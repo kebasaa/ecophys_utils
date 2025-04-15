@@ -329,6 +329,8 @@ def remove_nas(temp, cols):
 # This function fits both parameters (R_ref & E0) to allow for a later fit of R_ref
 def fit_E0(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f', initial_guess=(1.0, 300.0)):
     import pandas as pd
+    import numpy as np
+    from scipy.optimize import curve_fit
     # Extract night-time and remove NAs
     temp = temp[temp[dn_col] == 0].copy()
     filtered_df = remove_nas(temp, cols = [Tair_col, nee_col])
