@@ -59,3 +59,10 @@ def save_df(temp, output_path, output_fn, silent=True):
     if(not silent):
         print('Done...')
     pass
+
+# Sum function that ensures that the sum is nan if all elements were nan. Normally it would otherwise sum to 0
+def nansum(x):
+    if (x == np.nan).all():
+        return np.nan
+    else:
+        return x.sum()
