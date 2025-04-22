@@ -1,4 +1,4 @@
-def save_df(temp, output_path, output_fn, silent=True):
+def save_df(temp, output_path, output_fn, silent=False):
     import os
     import pandas as pd
     if(not silent):
@@ -9,6 +9,6 @@ def save_df(temp, output_path, output_fn, silent=True):
     out_fn = os.path.join(output_path, output_fn)
     # Save data
     temp.to_csv(out_fn, sep=',', index=False)
-    if(not silent):
-        print('Done...')
+    #if(not silent):
+    #    print('Done...')
     pass
