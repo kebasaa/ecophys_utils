@@ -1,5 +1,6 @@
 def save_df(temp, output_path, output_fn, silent=True):
     import os
+    import pandas as pd
     if(not silent):
         print('Saving data to', out_fn)
     # Ensure the directory exists
