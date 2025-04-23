@@ -6,7 +6,7 @@ def create_diurnal_df(temp, group_cols, data_cols, facet=False):
 
     group_cols = group_cols + ['hour','year']
 
-    diurnal_df = temp[group_cols + data_cols].groupby(group_cols).agg(['median', 'std'])#.mean(numeric_only=True)
+    diurnal_df = temp[group_cols + data_cols].groupby(group_cols).agg(['median', 'std'], numeric_only=True)
     diurnal_df.reset_index(inplace=True)
     diurnal_df.columns = ['_'.join(col).strip('_') for col in diurnal_df.columns.values]
 
