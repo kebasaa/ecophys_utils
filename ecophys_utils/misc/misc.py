@@ -62,7 +62,13 @@ def save_df(temp, output_path, output_fn, silent=True):
 
 # Sum function that ensures that the sum is nan if all elements were nan. Normally it would otherwise sum to 0
 def nansum(x):
+    import numpy as np
     if (x == np.nan).all():
         return np.nan
     else:
         return x.sum()
+
+def create_categorical_order(col, cat_order):
+    import pandas as pd
+    col = pd.Categorical(col, categories=cat_order, ordered=True)
+    return(col)
