@@ -45,7 +45,6 @@ def remove_highly_variable_days(temp, col='co2_flux', year=None, threshold=75, s
         n_bad      = len(temp.loc[(temp['day'].isin(high_variability_days)) & (~temp[col].isna()), col].index)
         n_bad_days = sum('-' in s for s in high_variability_days)
         n_days     = len(temp['day'].unique())
-        print(n_bad, n, n_bad_days, n_days)
         
     if ((not silent) and (year is not None)):
         print('  - Removing', str(np.round(n_bad/n*100, 2)) + '% bad', col, 'data in', year, 'due to highly variable days, i.e.', str(n_bad_days) + '/' + str(n_days), 'days')
