@@ -21,7 +21,7 @@ def flagged_data_removal_ep(temp, col, flag, silent=False):
     return(temp[col])
     
 # Remove highly variable days above a certain threshold
-def remove_highly_variable_days(temp, col='co2_flux', year=2019, threshold=75, silent=False):
+def remove_highly_variable_days(temp, col='co2_flux', year=None, threshold=75, silent=False):
     import numpy as np
     import pandas as pd
     temp = temp.copy()
@@ -36,12 +36,23 @@ def remove_highly_variable_days(temp, col='co2_flux', year=2019, threshold=75, s
     high_variability_days = daily_variability[daily_variability['range'] > threshold].index
 
     # Stats
-    n_bad      = len(temp.loc[(temp['day'].isin(high_variability_days)) & (temp['timestamp'].dt.year == year), col].index)
-    n          = len(temp.loc[~temp[col].isna()].index)
-    n_bad_days = sum(str(year) in s for s in high_variability_days)
-    n_days     = len(temp.loc[temp['timestamp'].dt.year == year,'day'].unique())
-    if not silent:
+    n = len(temp.loc[~temp[col].isna()].index)
+    if(year is not None):
+        n_bad      = len(temp.loc[(temp['day'].isin(high_variability_days)) & (temp['timestamp'].dt.year == year) & (~temp[col].isna()), col].index)
+        n_bad_days = sum(str(year) in s for s in high_variability_days)
+        n_days     = len(temp.loc[temp['timestamp'].dt.year == year,'day'].unique())
+    else:
+        n_bad      = len(temp.loc[(temp['day'].isin(high_variability_days)) & (~temp[col].isna()), col].index)
+        n_bad_days = sum('-' in s for s in high_variability_days)
+        n_days     = len(temp['day'].unique())
+        print(n_bad, n, n_bad_days, n_days)
+        
+    if ((not silent) and (year is not None)):
         print('  - Removing', str(np.round(n_bad/n*100, 2)) + '% bad', col, 'data in', year, 'due to highly variable days, i.e.', str(n_bad_days) + '/' + str(n_days), 'days')
+    elif ((not silent) and (year is None)):
+        print('  - Removing', str(np.round(n_bad/n*100, 2)) + '% bad', col, 'data due to highly variable days, i.e.', str(n_bad_days) + '/' + str(n_days), 'days')
+    else:
+        pass
     
     # Replace data of those days with NaN
     temp.loc[(temp['day'].isin(high_variability_days)) & (temp['timestamp'].dt.year == year), col] = np.nan
