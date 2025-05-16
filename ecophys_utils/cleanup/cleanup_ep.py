@@ -54,7 +54,10 @@ def remove_highly_variable_days(temp, col='co2_flux', year=None, threshold=75, s
         pass
     
     # Replace data of those days with NaN
-    temp.loc[(temp['day'].isin(high_variability_days)) & (temp['timestamp'].dt.year == year), col] = np.nan
+    if(year is not None):
+        temp.loc[(temp['day'].isin(high_variability_days)) & (temp['timestamp'].dt.year == year), col] = np.nan
+    else:
+        temp.loc[(temp['day'].isin(high_variability_days)), col] = np.nan
 
     return(temp[col])
 
