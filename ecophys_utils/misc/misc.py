@@ -72,3 +72,13 @@ def create_categorical_order(col, cat_order):
     import pandas as pd
     col = pd.Categorical(col, categories=cat_order, ordered=True)
     return(col)
+
+def complete_timestamps(temp, timestamp_col='timestamp', freq='30min'):
+    # Create empty dataframe with a 1min frequency
+    idx = pd.date_range(start=temp[timestamp_col].tolist()[0],
+                        end=temp[timestamp_col].tolist()[-1],
+                        freq=freq)
+    time_df = pd.DataFrame(idx, index=None, columns=[timestamp_col])
+    # Merge back
+    out_df = time_df.merge(temp, on=timestamp_col, how='left')
+    return(out_df)
