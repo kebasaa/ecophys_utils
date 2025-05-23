@@ -32,7 +32,6 @@ def annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_
         data_coverage = 100 * n_obs / nb_halfhours
         
         # Calculate Energy Budget Ration (EBR)
-        # ADD EQUATION TO SUPPLEMENT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ebr = (group[H_col].sum() + group[LE_col].sum())/(group[Rn_col].sum() - group[G_col].sum())
 
         # Calculate regression
