@@ -83,12 +83,12 @@ def turbulent_energy_fluxes_gapfilling(temp, H_col='H', H_strg_col='H_strg', LE_
         temp['G_filled']  = temp[G_col].interpolate(method='linear', limit=interp_hours*2, limit_direction='both')
         temp['turbulent_energy_fluxes'] = temp['H_tot_filled'] + temp['LE_tot_filled']
         temp['radiative_energy_fluxes'] = temp['Rn_filled'] - temp['G_filled']
-        # Estimate advection (remainder of the energy budget)
-        temp['advection_est'] = temp['turbulent_energy_fluxes'] - temp['radiative_energy_fluxes']
+        # Calculate half-hourly EBR
+        temp['ebr'] = temp['turbulent_energy_fluxes']/temp['radiative_energy_fluxes']
     else:
         temp['turbulent_energy_fluxes'] = temp['H_tot'] + temp['LE_tot']
         temp['radiative_energy_fluxes'] = temp[Rn_col] - temp[G_col]
-        # Estimate advection (remainder of the energy budget)
-        temp['advection_est'] = temp['turbulent_energy_fluxes'] - temp['radiative_energy_fluxes']
+        # Calculate half-hourly EBR
+        temp['ebr'] = temp['turbulent_energy_fluxes']/temp['radiative_energy_fluxes']
 
     return(temp)
