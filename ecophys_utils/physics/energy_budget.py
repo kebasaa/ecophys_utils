@@ -52,14 +52,14 @@ def annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_
         results.append({
             'year': year,
             'n_obs': n_obs,
+            'data_coverage.perc': data_coverage,
             #'total_annual_halfhours': nb_halfhours,
             'residuals_sum': res_sum, # [J/m2]
             'residuals_scaled': res_scaled, # [J/m2]
             'slope': slope,
             'intercept': intercept,
             'r2': r2,
-            'EBR': ebr,
-            'data_coverage.perc': data_coverage
+            'EBR': ebr
         })
 
     return pd.DataFrame(results)
