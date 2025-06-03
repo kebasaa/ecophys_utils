@@ -20,6 +20,9 @@ def annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_
         # Statistics
         nb_halfhours = total_annual_periods(year, averaging_period_mins=period_mins)
         n_obs = group.loc[group[res_col].notna()].shape[0]
+        # Calculate % of available data
+        data_coverage = 100 * n_obs / nb_halfhours
+        
         # Skip if too little data
         if n_obs == 0:
             continue
@@ -28,8 +31,6 @@ def annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_
         res_sum = group[res_col].sum()
         # Scale residuals to fraction of available data
         res_scaled = res_sum * (nb_halfhours / n_obs)
-        # Calculate % of available data
-        data_coverage = 100 * n_obs / nb_halfhours
         
         # Calculate Energy Budget Ration (EBR)
         ebr = (group[H_col].sum() + group[LE_col].sum())/(group[Rn_col].sum() - group[G_col].sum())
