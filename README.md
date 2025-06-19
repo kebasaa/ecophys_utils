@@ -7,9 +7,13 @@
 
 # ecophys_utils: Python utilities library for ecophysiology tasks
 
+WARNING: This is not finalised code. Use with caution!
+
 Library of support functions for Ecophysiology (Eddy Covariance, flux calculations, etc.). Functions are organised by files
 
-## Documentation (Available functions. TODO: Update)
+## Documentation
+
+WARNING: This documentation is incomplete and may slightly deviate from actual functions, as this code is not finalised.
 
 1. **dataloading:** Load data from a range of devices. Contains the following functions:
     - _Eddypro:_ [Eddypro (LI-COR Biosciences)](https://www.licor.com/support/EddyPro/software.html) outputs
@@ -92,11 +96,11 @@ There are a few options on how to use this package. We assume that you are using
     pip install -e C:\Users\my_user\Documents\Github\ecopyhs_utils\
     ```
 
-## How to Cite (TODO: Update later once useful)
+## How to Cite
 
 Muller (2025). *ecophys_utils: Python utilities library for ecophysiology tasks*
 
 ## License
 
-This software is distributed under the GNU GPL version 3
+This software is distributed under the GNU GPL version 3. Any modification of the code in this repository may only be released under the same license, and with attribution of authorship of the original code (i.e., citation above).
 
