@@ -5,3 +5,4 @@ from .meteo import *
 from .misc import *
 from .physics import *
 from .units import *
+from .gases import *
