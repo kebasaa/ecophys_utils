@@ -1,0 +1,11 @@
+R_ag_Ar  = 1.266
+R_ag_CH4 = 1.131
+R_ag_CO  = 1.200
+R_ag_CO2 = 1.611
+R_ag_COS = 1.955
+R_ag_H2O = 1.000
+R_ag_N2  = 1.210
+R_ag_N2O = 1.601
+R_ag_NO  = 1.194
+R_ag_O2  = 1.191
+R_ag_SO2 = 1.952
