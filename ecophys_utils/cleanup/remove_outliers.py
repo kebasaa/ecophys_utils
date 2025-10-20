@@ -26,6 +26,9 @@ def remove_outliers_by_regression(df, x_col, y_col, n_std=2, ddof=0,
     (slope, intercept) : tuple of floats
         Fitted slope and intercept (np.nan if fit not possible).
     """
+    import pandas as pd
+    import numpy as np
+    
     if na_action not in ('keep', 'drop_either', 'drop_both'):
         raise ValueError("na_action must be one of 'keep', 'drop_either', 'drop_both'")
 
