@@ -6,3 +6,4 @@ ecophys_utils/misc/__pycache__/
 ecophys_utils/physics/__pycache__/
 ecophys_utils/units/__pycache__/
 ecophys_utils/graph/__pycache__/
+/ecophys_utils/gases/__pycache__
