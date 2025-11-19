@@ -1,8 +1,16 @@
-# Campbell TOA5 data loading functions
+# Campbell TOB1 data loading functions
 #-----------------------------------
+import os
+import struct
+import datetime as _dt
+from operator import itemgetter
+import logging
+
 import pandas as pd
 
-def load_campbell_tob1(input_fn: str) -> pd.DataFrame:
+logger = logging.getLogger(__name__)
+
+def load_campbell_tob1(input_fn: str, silent: bool = False) -> pd.DataFrame:
     """
     Load a Campbell TOB1 binary file.
 
@@ -10,23 +18,46 @@ def load_campbell_tob1(input_fn: str) -> pd.DataFrame:
     ----------
     input_fn : str
         File path to TOB1 file.
+    silent : bool, optional
+        If True, suppress logging messages. Default is False.
 
     Returns
     -------
     pandas.DataFrame
-        Loaded DataFrame with parsed timestamps.
-    """
-    
-    data, meta = read_cs_files(fn)
-    transposed_data = list(zip(*data))
+        Loaded DataFrame with parsed timestamps and data columns.
 
+    Raises
+    ------
+    ValueError
+        If the file is not a valid TOB1 file or cannot be read.
+    """
+    data, meta = read_cs_files(input_fn, quiet=not silent)
+    if data is False:
+        raise ValueError(f"Failed to read TOB1 file: {input_fn}. File may not be a valid TOB1 format.")
+
+    transposed_data = list(zip(*data))
     df = pd.DataFrame(transposed_data, columns=meta[2])
-    df.rename(columns={'TIMESTAMP':'timestamp'}, inplace=True)
-    df = df.round(6) # round(7)
-    df.drop(columns=['RECORD'], inplace=True)
-    return(df)
+    df.rename(columns={'TIMESTAMP': 'timestamp'}, inplace=True)
+    df = df.round(6)
+    df.drop(columns=['RECORD'], inplace=True, errors='ignore')
+    if not silent:
+        logger.info(f"Loaded TOB1 file: {input_fn} with {len(df)} records.")
+    return df
     
-def fp22float(fp2integer):
+def fp22float(fp2integer: int) -> float:
+    """
+    Convert Campbell FP2 integer format to float.
+
+    Parameters
+    ----------
+    fp2integer : int
+        Integer value in FP2 format.
+
+    Returns
+    -------
+    float
+        Converted float value.
+    """
     inf, neginf, nan = 0x1fff, 0x9fff, 0x9ffe
 
     if fp2integer == inf:
@@ -43,7 +74,20 @@ def fp22float(fp2integer):
     return floatvalue
 
 
-def read_cs_formats(csformat):
+def read_cs_formats(csformat: list) -> list:
+    """
+    Convert Campbell Scientific format codes to Python struct format strings.
+
+    Parameters
+    ----------
+    csformat : list of str
+        List of Campbell format codes (e.g., 'FP2', 'IEEE4').
+
+    Returns
+    -------
+    list of str
+        List of Python struct format strings.
+    """
     pyformat = []
     knownformats = {'FP2': '>H', 'IEEE4': 'f', 'IEEE4B': '>f',
                     'UINT2': '>H', 'INT4': '>i', 'UINT4': '>L',
@@ -52,32 +96,46 @@ def read_cs_formats(csformat):
     for _ in csformat:
         if _.startswith('ASCII'):
             n_string = _.replace(')', '')
-            n_string = n_string.split(sep = '(')
+            n_string = n_string.split(sep='(')
             pyformat.append(f'{n_string[1]}s')
         elif _ in knownformats:
             pyformat.append(knownformats[_])
         else:
-            print(
-                (
-                    (
-                        (
-                            f'Warning: The format code {_}'
-                            + ' is not known \n'
-                            + 'please adapt the known formats (a dictionary)'
-                        )
-                        + 'This is done by the correct identifier from'
-                    )
-                    + 'https://docs.python.org/3.5/library/struct.html'
-                )
+            logger.warning(
+                f'Warning: The format code {_} is not known. '
+                'Please adapt the known formats dictionary. '
+                'See https://docs.python.org/3/library/struct.html for correct identifiers.'
             )
-
-
     return pyformat
 
 
-def read_cs_files(filename, forcedatetime=False,
-                  bycol=True, quiet=True, metaonly=False,**kwargs):
-    with open(filename, mode = 'rb') as file_obj:
+def read_cs_files(filename: str, forcedatetime: bool = False,
+                  bycol: bool = True, quiet: bool = True, metaonly: bool = False, **kwargs) -> tuple:
+    """
+    Read Campbell Scientific data files (TOA5, TOB1, TOB3, CSIXML).
+
+    Parameters
+    ----------
+    filename : str
+        Path to the data file.
+    forcedatetime : bool, optional
+        Force conversion of timestamps to datetime objects. Default is False.
+    bycol : bool, optional
+        Return data transposed by columns. Default is True.
+    quiet : bool, optional
+        Suppress informational messages. Default is True.
+    metaonly : bool, optional
+        Return only metadata. Default is False.
+    **kwargs
+        Additional keyword arguments passed to specific readers.
+
+    Returns
+    -------
+    tuple
+        (data, meta) where data is list of records, meta is list of metadata.
+        Returns (False, False) if file type not recognized.
+    """
+    with open(filename, mode='rb') as file_obj:
         firstline = file_obj.readline().rstrip().decode().split(sep = ',')
         firstline = [i.replace('"', '') for i in firstline]
         filetype = firstline[0]
@@ -89,13 +147,13 @@ def read_cs_files(filename, forcedatetime=False,
             csixml = firstline[0][1:-1].split(' ')
             if csixml[0] != 'csixml':
                 if not quiet:
-                    print('Filecontent indicated XML but apparently it\'s not a csixml file')
+                    logger.warning('File content indicated XML but it is not a valid CSIXML file')
                 return False, False
             else:
                 csixmlversion = float(csixml[1].split('=')[-1])
                 if csixmlversion > 1.0:
-                    print(
-                        f'This reader has been written for CSIXML version 1.0, but the version is {csixmlversion}'
+                    logger.warning(
+                        f'This reader is written for CSIXML version 1.0, but the file version is {csixmlversion}'
                     )
 
                 filetype = csixml[0].upper()
@@ -103,17 +161,17 @@ def read_cs_files(filename, forcedatetime=False,
             file_obj.seek(0)
 
         if not quiet:
-            print('reading header and determening filetype')
+            logger.info('Reading header and determining filetype')
 
         meta = read_cs_meta(file_obj, filetype)
         if metaonly:
             return meta
         if not quiet:
-            print(f'Reading the file {filename}')
+            logger.info(f'Reading the file {filename}')
 
         if filetype in ['TOA5', 'TOB1', 'TOB3', 'CSIXML']:
             if not quiet:
-                print(f'{filename} is a {filetype}-File')
+                logger.info(f'{filename} is a {filetype} file')
             if filetype == 'TOA5':
                 data = read_cs_toa5(file_obj,
                                     bycol = bycol, forcedatetime = forcedatetime, **kwargs)
@@ -145,7 +203,7 @@ def read_cs_files(filename, forcedatetime=False,
 
         else:
             if not quiet:
-                print('Neither TOA5,TOB1, TOB3 not CSIXML-File')
+                logger.warning('File is neither TOA5, TOB1, TOB3 nor CSIXML format')
             return False, False
 
 
@@ -187,7 +245,7 @@ def read_cs_meta(file_obj, filetype):
         meta[3] = ['DATETIME', 'ULONG',] + meta[3]
 
     else:
-        print('Here can follow other filetype headers..')
+        logger.warning('Unknown filetype, additional header parsing may be needed')
 
     for i, ii in enumerate(meta):
         meta[i] = [j.replace('"', '') for j in ii]
@@ -355,16 +413,12 @@ def read_cs_tob3(file_obj, meta,
                 prescale = multiplier_scale_dict[multiplier[0]]
                 multiplier = multiplier[1:]
             else:
-                print('warning, length indicates a multiplier_scale (',
-                      multiplier[0],
-                      '), but none found',
-                      )
+                logger.warning(f'Warning: length indicates a multiplier_scale ({multiplier[0]}), but none found')
                 prescale = 1. ** 0
         else:
             if not quiet:
-                print('No multiplier_scale found')
-                print('Abbreviation is only 3 letters long')
-            prescale = 1. ** 0
+                logger.info('No multiplier_scale found, abbreviation is only 3 letters long')
+            prescale = 1.0
 
         # should be expanded for the corrsponding amount of seconds in the mulitpliert
         time_abbr_dict = {'MIN': 60., 'SEC': 1.}
@@ -372,11 +426,10 @@ def read_cs_tob3(file_obj, meta,
             multiplier = prescale / time_abbr_dict[multiplier]
         else:
             multiplier = prescale / time_abbr_dict['SEC']
-            print('warning, time abbreviation could not be found')
-            print('Defaulting to seconds')
+            logger.warning('Warning: time abbreviation could not be found, defaulting to seconds')
     else:
-        print('warning, multiplier may not be correctly parsed and is set to 1')
-        multiplier = 1 ** 0
+        logger.warning('Warning: multiplier may not be correctly parsed and is set to 1')
+        multiplier = 1.0
 
     subrec_step = frameresolution / multiplier
     scale = frametimeresolution[3:].rstrip('sec')
@@ -406,10 +459,10 @@ def read_cs_tob3(file_obj, meta,
         binary_fhdr = file_obj.read(fhdrsize)
 
         if not binary_fhdr or len(binary_fhdr) < fhdrsize:
-            # end of file reached (file_obj.read returns an emptry string)
+            # end of file reached (file_obj.read returns an empty string)
             # the footer below should be unneeded but we leave it in case
-            # the  TOB3 is strange (which it is)
-            print(binary_fhdr,fhdrsize,len(binary_fhdr))
+            # the TOB3 is strange (which it is)
+            logger.debug(f'End of file reached: binary_fhdr={binary_fhdr}, fhdrsize={fhdrsize}, len={len(binary_fhdr)}')
             break
 
         rechdr.append(struct.unpack_from(fhdr, binary_fhdr))
