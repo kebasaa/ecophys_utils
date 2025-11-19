@@ -120,31 +120,6 @@ def calculate_gpp(nee, reco):
     gpp = np.where(gpp < 0, 0, gpp)
     return(gpp)
 
-def calculate_wue(gpp_umol_m2_s1, ET_mm_h):
-    # Constants
-    from ..units.constants import M_C
-    
-    # Convert ET from mm h-1 to kgH2O m-2 s-1
-    # 1 mm of water over 1 m² equals 1 kg, so per s, divide by 3600
-    ET_kgH2O_m2_s1 = ET_mm_h/3600
-    ET_kgH2O_m2_s1 = np.where(ET_kgH2O_m2_s1 < 0.00001, 0, ET_kgH2O_m2_s1)
-
-    gpp_gC_m2_s1 = gpp_umol_m2_s1 * 10**(-6) * M_C
-    
-    wue_gC_kgH2O = gpp_gC_m2_s1 / ET_kgH2O_m2_s1
-    wue_gC_kgH2O = np.where(np.isnan(wue_gC_kgH2O) | np.isinf(wue_gC_kgH2O), np.nan, wue_gC_kgH2O)
-    
-    return(wue_gC_kgH2O)
-    
-def calculate_wue_umol_mmol(gpp_umol_m2_s1, h2o_mmol_m2_s1):
-    # Correct h2o to ET, i.e. no negative flux
-    h2o_mmol_m2_s1 = np.where(h2o_mmol_m2_s1 < 0.00001, 0, h2o_mmol_m2_s1)
-    
-    wue_umolC_mmolH2O = gpp_umol_m2_s1 / h2o_mmol_m2_s1
-    wue_umolC_mmolH2O = np.where(np.isnan(wue_umolC_mmolH2O) | np.isinf(wue_umolC_mmolH2O), np.nan, wue_umolC_mmolH2O)
-    
-    return(wue_umolC_mmolH2O)
-
 # uStar filtering (similar to Reichstein et al. 2005 & Papale et al. 2006) function
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # filter_threshold = 0.99 determines at what % of NEE of the combined higher u* classes we accept a threshold

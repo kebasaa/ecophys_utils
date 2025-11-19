@@ -5,7 +5,7 @@ import pandas as pd
 
 # Calculate the dewpoint temperature in C
 def calculate_dewpointC(T_C, RH):
-    dp = 243.04*(np.log(RH/100)+((17.625*T_C)/(243.04+T_C)))/(17.625-log(RH/100)-((17.625*T_C)/(243.04+T_C)))
+    dp = 243.04*(np.log(RH/100)+((17.625*T_C)/(243.04+T_C)))/(17.625-np.log(RH/100)-((17.625*T_C)/(243.04+T_C)))
     return(dp)
 
 # Calculate saturation vapour pressure from pressure and temperature
@@ -208,7 +208,7 @@ def calculate_gas_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, ga
     return(gas_flux) # mol.m-2.s-1
 
 # Conductance calculations
-def calculate_cos_stomatal_conductance_ball_berry(T_C, h2o_mmol_mol, P_Pa, f_h2o_mmol_m2_s1, f_co2_umol_m2_s1, co2_umol_mol_ambient, PAR):
+def calculate_cos_stomatal_conductance_ball_berry(T_C, h2o_mmol_mol, P_Pa, f_h2o_mmol_m2_s1, f_co2_umol_m2_s1, co2_umol_mol_ambient, PAR, day_par_min = 20):
     # Note: T_C is the air temperature in C
     
     # Calculate some initial values
