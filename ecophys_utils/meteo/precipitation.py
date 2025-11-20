@@ -1,6 +1,28 @@
-# Time since last precipitation event
-def calculate_last_precipitation(df, timestamp_col='timestamp', precipitation_col='P_1_1_1', max_gap_in_event_h=12):
-    import pandas as pd
+# Precipitation functions
+#-----------------------
+import pandas as pd
+from typing import Optional
+
+def calculate_last_precipitation(df: pd.DataFrame, timestamp_col: str = 'timestamp', precipitation_col: str = 'P_1_1_1', max_gap_in_event_h: int = 12) -> pd.DataFrame:
+    """
+    Calculate time since last precipitation event.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame with timestamp and precipitation data.
+    timestamp_col : str, optional
+        Timestamp column name. Default is 'timestamp'.
+    precipitation_col : str, optional
+        Precipitation column name. Default is 'P_1_1_1'.
+    max_gap_in_event_h : int, optional
+        Max gap in hours for event continuity. Default is 12.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with cumulative precipitation and time since last event.
+    """
     # Extract only relevant columns
     temp = df[[timestamp_col, precipitation_col]].copy()
 

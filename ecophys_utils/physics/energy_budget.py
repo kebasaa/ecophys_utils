@@ -1,15 +1,73 @@
-def is_leap_year(year):
+# Energy budget functions
+#------------------------
+import numpy as np
+from typing import Union
+import pandas as pd
+from scipy.stats import linregress
+
+def is_leap_year(year: int) -> bool:
+    """
+    Check if a year is a leap year.
+
+    Parameters
+    ----------
+    year : int
+        Year to check.
+
+    Returns
+    -------
+    bool
+        True if leap year, False otherwise.
+    """
     return((year % 4 == 0 and year % 100 != 0) or (year % 400 == 0))
 
-def total_annual_periods(year, averaging_period_mins=30):
+def total_annual_periods(year: int, averaging_period_mins: int = 30) -> float:
+    """
+    Calculate total annual periods for a given averaging interval.
+
+    Parameters
+    ----------
+    year : int
+        Year.
+    averaging_period_mins : int, optional
+        Averaging period in minutes. Default is 30.
+
+    Returns
+    -------
+    float
+        Total number of periods in the year.
+    """
     daily_periods = 24*60/averaging_period_mins
     return(365 * daily_periods + (daily_periods if is_leap_year(year) else 0))
 
-def annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_col='Rn_filled', G_col='G_filled', period_mins=30):
-    import numpy as np
-    import pandas as pd
-    from scipy.stats import linregress
-    
+def annual_energy_budget(temp: pd.DataFrame, H_col: str = 'H_tot_filled', LE_col: str = 'LE_tot_filled', Rn_col: str = 'Rn_filled', G_col: str = 'G_filled', period_mins: int = 30) -> pd.DataFrame:
+    """
+    Calculate annual energy budget statistics.
+
+    Parameters
+    ----------
+    temp : pandas.DataFrame
+        DataFrame with energy flux data.
+    H_col : str, optional
+        Column name for sensible heat flux. Default is 'H_tot_filled'.
+    LE_col : str, optional
+        Column name for latent heat flux. Default is 'LE_tot_filled'.
+    Rn_col : str, optional
+        Column name for net radiation. Default is 'Rn_filled'.
+    G_col : str, optional
+        Column name for ground heat flux. Default is 'G_filled'.
+    period_mins : int, optional
+        Period in minutes. Default is 30.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with annual energy budget statistics.
+
+    See Also
+    --------
+    turbulent_energy_fluxes_gapfilling : Gap-fill turbulent fluxes.
+    """
     results = []
     res_col='eb_residual.J_m2'
 
@@ -65,9 +123,36 @@ def annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_
 
     return pd.DataFrame(results)
 
-# Fills gaps, interpolates based on 30min timesteps (assumes complete timestamp column)
-def turbulent_energy_fluxes_gapfilling(temp, H_col='H', H_strg_col='H_strg', LE_col='LE', LE_strg_col='LE_strg', Rn_col='Rn', G_col='G', interp=True, interp_hours=2):
-    import pandas as pd
+def turbulent_energy_fluxes_gapfilling(temp: pd.DataFrame, H_col: str = 'H', H_strg_col: str = 'H_strg', LE_col: str = 'LE', LE_strg_col: str = 'LE_strg', Rn_col: str = 'Rn', G_col: str = 'G', interp: bool = True, interp_hours: int = 2) -> pd.DataFrame:
+    """
+    Gapfill turbulent energy fluxes.
+
+    Parameters
+    ----------
+    temp : pandas.DataFrame
+        DataFrame with flux data.
+    H_col : str, optional
+        Column name for sensible heat flux. Default is 'H'.
+    H_strg_col : str, optional
+        Column name for sensible heat storage. Default is 'H_strg'.
+    LE_col : str, optional
+        Column name for latent heat flux. Default is 'LE'.
+    LE_strg_col : str, optional
+        Column name for latent heat storage. Default is 'LE_strg'.
+    Rn_col : str, optional
+        Column name for net radiation. Default is 'Rn'.
+    G_col : str, optional
+        Column name for ground heat flux. Default is 'G'.
+    interp : bool, optional
+        Whether to interpolate gaps. Default is True.
+    interp_hours : int, optional
+        Hours to interpolate. Default is 2.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with gapfilled fluxes.
+    """
     temp = temp.copy()
 
     # Calculate total H & LE (incl. storage)
