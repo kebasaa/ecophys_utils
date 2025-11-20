@@ -11,7 +11,7 @@
 WARNING: This is not finalised code. Use with caution!
 
 
-A library of support functions for ecophysiology research, including Eddy Covariance data processing, flux calculations, partitioning, and more. Functions are organized into modules for easy access.
+A library of support functions for ecophysiology research, including Eddy Covariance data processing, flux calculations, partitioning, and more. Functions are organised into modules for easy access.
 
 ## Features
 
@@ -148,7 +148,7 @@ es = eco.calculate_es(T_C, P_Pa)
 ### cleanup
 Data cleaning and quality control functions.
 
-- `flagged_data_removal_ep(temp, col, flag, silent=False)`: Remove flagged data points by setting to NaN, optimized for EddyPro quality flags.
+- `flagged_data_removal_ep(temp, col, flag, silent=False)`: Remove flagged data points by setting to NaN, optimised for EddyPro quality flags.
 - `remove_highly_variable_days(temp, col='co2_flux', year=None, threshold=75, silent=False)`: Remove days with excessive variability in specified column.
 - `remove_outliers(temp, col='co2_flux', stdevs=2, silent=False)`: Remove outliers based on standard deviation threshold.
 - `remove_outliers_by_regression(df, x_col, y_col, n_std=2, ddof=0)`: Remove outliers based on regression residual analysis.
@@ -180,9 +180,9 @@ Functions for loading data from various instruments and formats.
 - `save_df(temp, output_path, output_fn, silent=True)`: Save DataFrame to CSV file.
 
 ### gases
-Gas parameter constants and utilities.
+Stomatal conductance adjustment factors
 
-- Gas correction factors (R_ag_*): Aerodynamic resistance ratios for various gases relative to water vapor.
+- Gas correction factors (R_ag_*): Stomatal conductance ratios for various gases relative to water vapor, allows to calculate conductance from known water vapor conductance
 
 ### graph
 Visualization helper functions.
@@ -228,7 +228,7 @@ Unit conversion utilities.
 ### utils
 Utility functions for data manipulation and processing (consolidated in data_processing.py).
 
-- `sanitize_column_names(columns)`: Sanitize column names by removing special characters and ensuring uniqueness.
+- `sanitize_column_names(columns)`: Sanitise column names by removing special characters and ensuring uniqueness.
 - `create_season_southern_hemisphere(timestamps)`: Create season labels for southern hemisphere (3-month seasons).
 - `create_season_northern_hemisphere(timestamps)`: Create season labels for northern hemisphere (3-month seasons).
 - `save_df(temp, output_path, output_fn, silent=True)`: Save DataFrame to CSV with optional logging.
