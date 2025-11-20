@@ -265,6 +265,10 @@ Energy budget analysis and gap-filling.
 - `total_annual_periods(year, averaging_period_mins=30)`: Calculate total periods in a year.
 - `annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_col='Rn_filled', G_col='G_filled', period_mins=30)`: Calculate annual energy budget statistics.
 - `turbulent_energy_fluxes_gapfilling(temp, H_col='H', H_strg_col='H_strg', LE_col='LE', LE_strg_col='LE_strg', Rn_col='Rn', G_col='G', interp=True, interp_hours=2)`: Gap-fill turbulent energy fluxes.
+- `calculate_bowen_ratio(H, LE)`: Calculate Bowen ratio (H/LE).
+- `calculate_albedo(SW_in, SW_out)`: Calculate surface albedo.
+- `calculate_longwave_radiation(T_surf, emissivity=0.97, LW_in=None)`: Calculate longwave radiation components.
+- `calculate_surface_temperature_from_longwave(LW_out, emissivity=0.97, reflectance=None)`: Calculate surface temperature from longwave radiation.
 
 ### stomatal_conductance
 Stomatal conductance calculations.

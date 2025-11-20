@@ -1,7 +1,7 @@
 # Energy budget functions
 #------------------------
 import numpy as np
-from typing import Union
+from typing import Union, Optional
 import pandas as pd
 from scipy.stats import linregress
 
@@ -178,3 +178,129 @@ def turbulent_energy_fluxes_gapfilling(temp: pd.DataFrame, H_col: str = 'H', H_s
         temp['EBR'] = temp['turbulent_energy_fluxes']/temp['radiative_energy_fluxes']
 
     return(temp)
+
+
+def calculate_bowen_ratio(H: Union[float, np.ndarray], LE: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """
+    Calculate Bowen ratio (β = H / LE).
+
+    The Bowen ratio indicates the partitioning of available energy into sensible (H) and latent (LE) heat fluxes.
+    Values: β < 1 (energy-limited/wet), β > 1 (water-limited/dry), β ≈ 0 (adiabatic).
+
+    Parameters
+    ----------
+    H : float or numpy.ndarray
+        Sensible heat flux (W/m²).
+    LE : float or numpy.ndarray
+        Latent heat flux (W/m²).
+
+    Returns
+    -------
+    float or numpy.ndarray
+        Bowen ratio (dimensionless).
+
+    Notes
+    -----
+    Handles division by zero by returning NaN when LE = 0.
+    """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        beta = H / LE
+    return beta
+
+
+def calculate_albedo(SW_in: Union[float, np.ndarray], SW_out: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """
+    Calculate surface albedo (α = SW_out / SW_in).
+
+    Albedo represents the fraction of incoming shortwave radiation that is reflected by the surface.
+
+    Parameters
+    ----------
+    SW_in : float or numpy.ndarray
+        Incoming shortwave radiation (W/m²).
+    SW_out : float or numpy.ndarray
+        Outgoing (reflected) shortwave radiation (W/m²).
+
+    Returns
+    -------
+    float or numpy.ndarray
+        Albedo (dimensionless, 0-1).
+
+    Notes
+    -----
+    Values are clipped to [0, 1] to ensure physical bounds.
+    """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        albedo = SW_out / SW_in
+    return np.clip(albedo, 0, 1)
+
+
+def calculate_longwave_radiation(T_surf: Union[float, np.ndarray], emissivity: float = 0.97, LW_in: Union[float, np.ndarray] = None) -> dict:
+    """
+    Calculate longwave radiation components.
+
+    Computes outgoing longwave radiation (LW_out) using the Stefan-Boltzmann law.
+    If incoming longwave is provided, also calculates net longwave radiation.
+
+    Parameters
+    ----------
+    T_surf : float or numpy.ndarray
+        Surface temperature (K).
+    emissivity : float, optional
+        Surface emissivity (default 0.97 for vegetation).
+    LW_in : float or numpy.ndarray, optional
+        Incoming longwave radiation (W/m²). If provided, LW_net is calculated.
+
+    Returns
+    -------
+    dict
+        Contains 'LW_out' (outgoing longwave) and optionally 'LW_net' (net longwave).
+
+    Notes
+    -----
+    Assumes blackbody approximation. Stefan-Boltzmann constant = 5.67e-8 W/m²/K⁴.
+    """
+    from ..units.constants import sigma
+    LW_out = emissivity * sigma * T_surf**4
+
+    result = {'LW_out': LW_out}
+    if LW_in is not None:
+        result['LW_net'] = LW_in - LW_out
+
+    return result
+
+
+def calculate_surface_temperature_from_longwave(LW_out: Union[float, np.ndarray], emissivity: float = 0.97, reflectance: Optional[float] = None) -> Union[float, np.ndarray]:
+    """
+    Calculate surface temperature from outgoing longwave radiation.
+
+    Uses the Stefan-Boltzmann law: T = (LW_out / (ε * σ))^(1/4)
+    If reflectance is provided, emissivity is adjusted as ε = 1 - ρ (for opaque surfaces).
+
+    Parameters
+    ----------
+    LW_out : float or numpy.ndarray
+        Outgoing longwave radiation (W/m²).
+    emissivity : float, optional
+        Surface emissivity (default 0.97). Ignored if reflectance is provided.
+    reflectance : float, optional
+        Surface reflectance for longwave (ρ). If provided, ε = 1 - ρ.
+
+    Returns
+    -------
+    float or numpy.ndarray
+        Surface temperature (K).
+
+    Notes
+    -----
+    Assumes blackbody approximation. Stefan-Boltzmann constant = 5.67e-8 W/m²/K⁴.
+    """
+    from ..units.constants import sigma
+    
+    if reflectance is not None:
+        emissivity = 1 - reflectance  # Kirchhoff's law for opaque surfaces
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        T_surf = (LW_out / (emissivity * sigma)) ** (1/4)
+
+    return T_surf
