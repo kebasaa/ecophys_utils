@@ -4,6 +4,21 @@ import glob
 import pandas as pd
 
 def load_li600(input_fn: str, silent: bool = True) -> pd.DataFrame:
+    """
+    Load a single LI-600 photosynthesis system file.
+
+    Parameters
+    ----------
+    input_fn : str
+        Path to the LI-600 CSV file.
+    silent : bool, optional
+        If False, print the file name being loaded. Default is True.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Loaded DataFrame with parsed timestamps.
+    """
     if (not silent):
         print('  -', input_fn.split('/')[-1])
 
@@ -24,6 +39,23 @@ def load_li600(input_fn: str, silent: bool = True) -> pd.DataFrame:
     return(df)
 
 def load_all_li600(path: str, pattern: str = '.csv', silent: bool = False) -> pd.DataFrame:
+    """
+    Load all LI-600 files from a directory.
+
+    Parameters
+    ----------
+    path : str
+        Directory path containing LI-600 files.
+    pattern : str, optional
+        File pattern to match. Default is '.csv'.
+    silent : bool, optional
+        If False, print loading progress. Default is False.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Concatenated DataFrame from all files.
+    """
     if (not silent):
         print('Loading from ' + path)
         
@@ -42,6 +74,21 @@ def load_all_li600(path: str, pattern: str = '.csv', silent: bool = False) -> pd
     return(df)
     
 def remove_obsolete_cols_li600(temp: pd.DataFrame, silent: bool = False) -> pd.DataFrame:
+    """
+    Remove obsolete columns from LI-600 DataFrame.
+
+    Parameters
+    ----------
+    temp : pandas.DataFrame
+        DataFrame from LI-600 file.
+    silent : bool, optional
+        If False, print action message. Default is False.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with obsolete columns removed.
+    """
     if (not silent):
         print('Removing obsolete columns')
     # Remove obsolete columns

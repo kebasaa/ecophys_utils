@@ -1,6 +1,22 @@
-def load_all_zip(path, silent=False):
-    import zipfile
-    import pandas as pd
+import zipfile
+import pandas as pd
+    
+def load_all_zip(path: str, silent: bool = False) -> pd.DataFrame:
+    """
+    Load all CSV files from within a ZIP archive.
+
+    Parameters
+    ----------
+    path : str
+        Path to the ZIP file.
+    silent : bool, optional
+        If False, print loading progress. Default is False.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Concatenated DataFrame from all CSV files in the ZIP.
+    """
 
     # Open ZIP file and list all CSVs
     with zipfile.ZipFile(path, "r") as z:

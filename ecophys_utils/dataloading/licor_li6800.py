@@ -1,8 +1,23 @@
-def load_li6800(input_fn, silent=True):
-    import os
-    import pandas as pd
-    from ..misc.misc import sanitize_column_names
-    
+import os
+import pandas as pd
+from ..misc.misc import sanitize_column_names
+
+def load_li6800(input_fn: str, silent: bool = True) -> pd.DataFrame:
+    """
+    Load a single LI-6800 portable photosynthesis system file.
+
+    Parameters
+    ----------
+    input_fn : str
+        Path to the LI-6800 file.
+    silent : bool, optional
+        If False, print the file name being loaded. Default is True.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Loaded DataFrame with parsed timestamps.
+    """
     if (not silent):
         print('  -', input_fn.split('/')[-1])
 
@@ -64,7 +79,22 @@ def load_li6800(input_fn, silent=True):
     
     return(df)
 
-def load_all_li6800(path, silent=False):
+def load_all_li6800(path: str, silent: bool = False) -> pd.DataFrame:
+    """
+    Load all LI-6800 files from a directory.
+
+    Parameters
+    ----------
+    path : str
+        Directory path containing LI-6800 files.
+    silent : bool, optional
+        If False, print loading progress. Default is False.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Concatenated DataFrame from all files.
+    """
     import os
     import glob
     if (not silent):
