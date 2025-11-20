@@ -1,7 +1,29 @@
-# Removes flagged data by making it NAN, based on a condition flag
-def flagged_data_removal_ep(temp, col, flag, silent=False):
-    import pandas as pd
-    import numpy as np
+# EddyPro cleanup functions
+#---------------------------
+import pandas as pd
+import numpy as np
+from typing import Union, Optional
+
+def flagged_data_removal_ep(temp: pd.DataFrame, col: str, flag: Union[pd.Series, np.ndarray], silent: bool = False) -> pd.Series:
+    """
+    Remove flagged data by setting to NaN.
+
+    Parameters
+    ----------
+    temp : pandas.DataFrame
+        DataFrame with data.
+    col : str
+        Column to clean.
+    flag : pandas.Series or numpy.ndarray
+        Boolean flag for bad data.
+    silent : bool, optional
+        Whether to suppress output. Default is False.
+
+    Returns
+    -------
+    pandas.Series
+        Cleaned column.
+    """
     temp = temp.copy()
 
     # Stats
@@ -9,21 +31,39 @@ def flagged_data_removal_ep(temp, col, flag, silent=False):
     n     = len(temp.loc[(~temp[col].isna())].index)
 
     if(not silent and not n):
-        print('  - WARNING: Removing', col, 'data failed: All NA')
+        print('    - WARNING: Removing', col, 'data failed: All NA')
         return(temp[col])
-    
-    if not silent:
-        print('  - Removing', str(np.round(n_bad/n*100, 2)) + '% flagged', col, 'data')
+
+    if(not silent):
+        print('    - Removing', str(np.round(n_bad/n*100, 2)) + '% flagged', col, 'data')
 
     # Remove bad data
     temp.loc[flag, col] = np.nan
     
     return(temp[col])
     
-# Remove highly variable days above a certain threshold
-def remove_highly_variable_days(temp, col='co2_flux', year=None, threshold=75, silent=False):
-    import numpy as np
-    import pandas as pd
+def remove_highly_variable_days(temp: pd.DataFrame, col: str = 'co2_flux', year: Optional[int] = None, threshold: int = 75, silent: bool = False) -> pd.Series:
+    """
+    Remove data from highly variable days.
+
+    Parameters
+    ----------
+    temp : pandas.DataFrame
+        DataFrame with data.
+    col : str, optional
+        Column to clean. Default is 'co2_flux'.
+    year : int, optional
+        Specific year to filter. Default is None.
+    threshold : int, optional
+        Variability threshold. Default is 75.
+    silent : bool, optional
+        Whether to suppress output. Default is False.
+
+    Returns
+    -------
+    pandas.Series
+        Cleaned column.
+    """
     temp = temp.copy()
 
     temp['day'] = temp['timestamp'].dt.strftime('%Y-%m-%d')
@@ -47,9 +87,9 @@ def remove_highly_variable_days(temp, col='co2_flux', year=None, threshold=75, s
         n_days     = len(temp['day'].unique())
         
     if ((not silent) and (year is not None)):
-        print('  - Removing', str(np.round(n_bad/n*100, 2)) + '% bad', col, 'data in', year, 'due to highly variable days, i.e.', str(n_bad_days) + '/' + str(n_days), 'days')
+        print('    - Removing', str(np.round(n_bad/n*100, 2)) + '% bad', col, 'data in', year, 'due to highly variable days, i.e.', str(n_bad_days) + '/' + str(n_days), 'days')
     elif ((not silent) and (year is None)):
-        print('  - Removing', str(np.round(n_bad/n*100, 2)) + '% bad', col, 'data due to highly variable days, i.e.', str(n_bad_days) + '/' + str(n_days), 'days')
+        print('    - Removing', str(np.round(n_bad/n*100, 2)) + '% bad', col, 'data due to highly variable days, i.e.', str(n_bad_days) + '/' + str(n_days), 'days')
     else:
         pass
     
@@ -61,10 +101,26 @@ def remove_highly_variable_days(temp, col='co2_flux', year=None, threshold=75, s
 
     return(temp[col])
 
-# Remove datapoints >2 stddevs from daily median
-def remove_outliers(temp, col='co2_flux', stdevs=2, silent=False):
-    import numpy as np
-    import pandas as pd
+def remove_outliers(temp: pd.DataFrame, col: str = 'co2_flux', stdevs: int = 2, silent: bool = False) -> pd.Series:
+    """
+    Remove outliers beyond std devs from daily median.
+
+    Parameters
+    ----------
+    temp : pandas.DataFrame
+        DataFrame with data.
+    col : str, optional
+        Column to clean. Default is 'co2_flux'.
+    stdevs : int, optional
+        Number of std devs. Default is 2.
+    silent : bool, optional
+        Whether to suppress output. Default is False.
+
+    Returns
+    -------
+    pandas.Series
+        Cleaned column.
+    """
     temp = temp.copy()
 
     temp['day'] = temp['timestamp'].dt.strftime('%Y-%m-%d')
@@ -79,7 +135,7 @@ def remove_outliers(temp, col='co2_flux', stdevs=2, silent=False):
     n     = len(temp.loc[~temp[col].isna()].index)
     n_bad = len(temp.loc[(temp[col] > temp['median'] + stdevs*temp['std']) | (temp[col] < temp['median'] - stdevs*temp['std']), col].index)
     if not silent:
-        print('  - Removing', str(np.round(n_bad/n*100, 2)) + '% outlier data in', col)
+        print('    - Removing', str(np.round(n_bad/n*100, 2)) + '% outlier data in', col)
     
     # Filter out the bad values
     temp.loc[(temp[col] > temp['median'] + stdevs*temp['std']) | (temp[col] < temp['median'] - stdevs*temp['std']), col] = np.nan

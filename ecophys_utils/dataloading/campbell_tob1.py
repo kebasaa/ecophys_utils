@@ -4,11 +4,8 @@ import os
 import struct
 import datetime as _dt
 from operator import itemgetter
-import logging
 
 import pandas as pd
-
-logger = logging.getLogger(__name__)
 
 def load_campbell_tob1(input_fn: str, silent: bool = False) -> pd.DataFrame:
     """
@@ -41,7 +38,7 @@ def load_campbell_tob1(input_fn: str, silent: bool = False) -> pd.DataFrame:
     df = df.round(6)
     df.drop(columns=['RECORD'], inplace=True, errors='ignore')
     if not silent:
-        logger.info(f"Loaded TOB1 file: {input_fn} with {len(df)} records.")
+        print(f"Loaded TOB1 file: {input_fn} with {len(df)} records.")
     return df
     
 def fp22float(fp2integer: int) -> float:
@@ -101,10 +98,18 @@ def read_cs_formats(csformat: list) -> list:
         elif _ in knownformats:
             pyformat.append(knownformats[_])
         else:
-            logger.warning(
-                f'Warning: The format code {_} is not known. '
-                'Please adapt the known formats dictionary. '
-                'See https://docs.python.org/3/library/struct.html for correct identifiers.'
+            print(
+                (
+                    (
+                        (
+                            f'Warning: The format code {_}'
+                            + ' is not known \n'
+                            + 'please adapt the known formats (a dictionary)'
+                        )
+                        + 'This is done by the correct identifier from'
+                    )
+                    + 'https://docs.python.org/3.5/library/struct.html'
+                )
             )
     return pyformat
 
@@ -147,13 +152,13 @@ def read_cs_files(filename: str, forcedatetime: bool = False,
             csixml = firstline[0][1:-1].split(' ')
             if csixml[0] != 'csixml':
                 if not quiet:
-                    logger.warning('File content indicated XML but it is not a valid CSIXML file')
+                    print('Filecontent indicated XML but apparently it\'s not a csixml file')
                 return False, False
             else:
                 csixmlversion = float(csixml[1].split('=')[-1])
                 if csixmlversion > 1.0:
-                    logger.warning(
-                        f'This reader is written for CSIXML version 1.0, but the file version is {csixmlversion}'
+                    print(
+                        f'This reader has been written for CSIXML version 1.0, but the version is {csixmlversion}'
                     )
 
                 filetype = csixml[0].upper()
@@ -161,17 +166,17 @@ def read_cs_files(filename: str, forcedatetime: bool = False,
             file_obj.seek(0)
 
         if not quiet:
-            logger.info('Reading header and determining filetype')
+            print('reading header and determening filetype')
 
         meta = read_cs_meta(file_obj, filetype)
         if metaonly:
             return meta
         if not quiet:
-            logger.info(f'Reading the file {filename}')
+            print(f'Reading the file {filename}')
 
         if filetype in ['TOA5', 'TOB1', 'TOB3', 'CSIXML']:
             if not quiet:
-                logger.info(f'{filename} is a {filetype} file')
+                print(f'{filename} is a {filetype}-File')
             if filetype == 'TOA5':
                 data = read_cs_toa5(file_obj,
                                     bycol = bycol, forcedatetime = forcedatetime, **kwargs)
@@ -203,7 +208,7 @@ def read_cs_files(filename: str, forcedatetime: bool = False,
 
         else:
             if not quiet:
-                logger.warning('File is neither TOA5, TOB1, TOB3 nor CSIXML format')
+                print('Neither TOA5,TOB1, TOB3 not CSIXML-File')
             return False, False
 
 
@@ -245,7 +250,7 @@ def read_cs_meta(file_obj, filetype):
         meta[3] = ['DATETIME', 'ULONG',] + meta[3]
 
     else:
-        logger.warning('Unknown filetype, additional header parsing may be needed')
+        print('Here can follow other filetype headers..')
 
     for i, ii in enumerate(meta):
         meta[i] = [j.replace('"', '') for j in ii]
@@ -413,11 +418,15 @@ def read_cs_tob3(file_obj, meta,
                 prescale = multiplier_scale_dict[multiplier[0]]
                 multiplier = multiplier[1:]
             else:
-                logger.warning(f'Warning: length indicates a multiplier_scale ({multiplier[0]}), but none found')
+                print('warning, length indicates a multiplier_scale (',
+                      multiplier[0],
+                      '), but none found',
+                      )
                 prescale = 1. ** 0
         else:
             if not quiet:
-                logger.info('No multiplier_scale found, abbreviation is only 3 letters long')
+                print('No multiplier_scale found')
+                print('Abbreviation is only 3 letters long')
             prescale = 1.0
 
         # should be expanded for the corrsponding amount of seconds in the mulitpliert
@@ -426,10 +435,11 @@ def read_cs_tob3(file_obj, meta,
             multiplier = prescale / time_abbr_dict[multiplier]
         else:
             multiplier = prescale / time_abbr_dict['SEC']
-            logger.warning('Warning: time abbreviation could not be found, defaulting to seconds')
+            print('warning, time abbreviation could not be found')
+            print('Defaulting to seconds')
     else:
-        logger.warning('Warning: multiplier may not be correctly parsed and is set to 1')
-        multiplier = 1.0
+        print('warning, multiplier may not be correctly parsed and is set to 1')
+        multiplier = 1 ** 0
 
     subrec_step = frameresolution / multiplier
     scale = frametimeresolution[3:].rstrip('sec')
@@ -462,7 +472,7 @@ def read_cs_tob3(file_obj, meta,
             # end of file reached (file_obj.read returns an empty string)
             # the footer below should be unneeded but we leave it in case
             # the TOB3 is strange (which it is)
-            logger.debug(f'End of file reached: binary_fhdr={binary_fhdr}, fhdrsize={fhdrsize}, len={len(binary_fhdr)}')
+            print(binary_fhdr,fhdrsize,len(binary_fhdr))
             break
 
         rechdr.append(struct.unpack_from(fhdr, binary_fhdr))

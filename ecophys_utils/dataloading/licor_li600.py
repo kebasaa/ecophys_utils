@@ -1,5 +1,9 @@
-def load_li600(input_fn, silent=True):
-    import pandas as pd
+# LI-600 data loading functions
+#-------------------------------
+import glob
+import pandas as pd
+
+def load_li600(input_fn: str, silent: bool = True) -> pd.DataFrame:
     if (not silent):
         print('  -', input_fn.split('/')[-1])
 
@@ -19,9 +23,7 @@ def load_li600(input_fn, silent=True):
     
     return(df)
 
-def load_all_li600(path, pattern='.csv', silent=False):
-    import glob
-    import pandas as pd
+def load_all_li600(path: str, pattern: str = '.csv', silent: bool = False) -> pd.DataFrame:
     if (not silent):
         print('Loading from ' + path)
         
@@ -39,8 +41,7 @@ def load_all_li600(path, pattern='.csv', silent=False):
     df = pd.concat(df_list, axis=0, ignore_index=True)
     return(df)
     
-def remove_obsolete_cols_li600(temp, silent=False):
-    import pandas as pd
+def remove_obsolete_cols_li600(temp: pd.DataFrame, silent: bool = False) -> pd.DataFrame:
     if (not silent):
         print('Removing obsolete columns')
     # Remove obsolete columns

@@ -66,7 +66,6 @@ def load_li6400(input_fn, silent=True):
 def load_all_li6400(path, silent=False):
     import os
     import glob
-    import pandas as pd
     if (not silent):
         print('Loading from ' + path)
 

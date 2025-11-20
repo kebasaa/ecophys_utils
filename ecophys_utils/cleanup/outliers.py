@@ -1,5 +1,10 @@
-def remove_outliers_by_regression(df, x_col, y_col, n_std=2, ddof=0,
-                                  na_action='keep', silent=False):
+# Outlier removal functions
+#--------------------------
+import pandas as pd
+import numpy as np
+from typing import Tuple, Union
+
+def remove_outliers_by_regression(df: pd.DataFrame, x_col: str, y_col: str, n_std: float = 2, ddof: int = 0, na_action: str = 'keep', silent: bool = False) -> Tuple[pd.DataFrame, Tuple[float, float]]:
     """
     Remove rows whose vertical residual from linear fit y ~ x is > n_std * std(resid).
 
@@ -26,9 +31,6 @@ def remove_outliers_by_regression(df, x_col, y_col, n_std=2, ddof=0,
     (slope, intercept) : tuple of floats
         Fitted slope and intercept (np.nan if fit not possible).
     """
-    import pandas as pd
-    import numpy as np
-    
     if na_action not in ('keep', 'drop_either', 'drop_both'):
         raise ValueError("na_action must be one of 'keep', 'drop_either', 'drop_both'")
 
