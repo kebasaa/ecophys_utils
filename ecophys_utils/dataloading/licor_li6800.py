@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from ..misc.misc import sanitize_column_names
+from ..utils.data_processing import sanitize_column_names
 
 def load_li6800(input_fn: str, silent: bool = True) -> pd.DataFrame:
     """

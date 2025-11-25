@@ -22,7 +22,7 @@ def load_csv(fn: str, timestamp_format: str = '%Y-%m-%d %H:%M:%S', silent: bool 
         Loaded DataFrame with parsed timestamps.
     """
     if not silent:
-        print('  -', fn.split('/')[-1
+        print('  -', fn.split('/')[-1])
     
     try:
         temp = pd.read_csv(fn, index_col=None)
