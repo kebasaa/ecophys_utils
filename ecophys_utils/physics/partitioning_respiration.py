@@ -183,7 +183,7 @@ def fit_E0(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: str = 'TA_1_
     R_ref_fit, E0_fit = popt
     return R_ref_fit, E0_fit
 
-def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: str = 'TA_1_1_1', nee_col: str = 'nee_f', timestamp_col: str = 'timestamp', E0_col: str = 'E0_fit', window_days: int = 15, shift_days: int = 5) -> pd.DataFrame:
+def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: str = 'TA_1_1_1', nee_col: str = 'nee_f', timestamp_col: str = 'timestamp', E0_col: str = 'E0_fit', window_days: int = 15, shift_days: int = 5, min_points: int = 10) -> pd.DataFrame:
     """
     Estimate R_ref in overlapping moving windows of nighttime data.
 
@@ -208,6 +208,8 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
         Number of days for each window. Default is 15.
     shift_days : int, optional
         Number of days to shift windows. Default is 5.
+    min_points : int, optional
+        Min. number of valid data points. Default is 10
 
     Returns
     -------
@@ -219,9 +221,6 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
     fit_E0 : Fit E0 parameter for Lloyd-Taylor model.
     interpolate_R_ref : Interpolate R_ref values.
     """
-    # Filter for night-time data and remove NA values.
-    temp = temp[temp[dn_col] == 0].copy()
-    temp = remove_nas(temp, cols=[Tair_col, nee_col])
     
     # Define window and shift sizes as timedeltas.
     window_size = pd.Timedelta(days=window_days)
@@ -230,6 +229,10 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
     # Determine the overall time range.
     start_time = temp[timestamp_col].min()
     end_time = temp[timestamp_col].max()
+    
+    # Filter for night-time data and remove NA values.
+    temp = temp[temp[dn_col] == 0].copy()
+    temp = remove_nas(temp, cols=[Tair_col, nee_col])
     
     # Generate window start times such that the entire window fits within the data range.
     window_starts = []
@@ -246,33 +249,36 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
     def process_window(window_start):
         window_end = window_start + window_size
         window_data = temp[(temp[timestamp_col] >= window_start) & (temp[timestamp_col] < window_end)]
+        # Calculate the midpoint of the window.
+        window_midpoint = window_start + window_size / 2
         
         # Require a minimum temperature range and number of data points.
-        if (len(window_data) < 10) or ((window_data[Tair_col].max() - window_data[Tair_col].min()) < 5):
-            return None
+        if (len(window_data) < min_points) or ((window_data[Tair_col].max() - window_data[Tair_col].min()) < 5):
+            return {timestamp_col: pd.Timestamp(window_midpoint),
+                    'R_ref': np.nan,
+                    'E0': np.nan}
         
         # Fit R_ref with E0 fixed.
+        T_window = window_data[Tair_col].values
+        Reco_window = window_data[nee_col].values
+        E0_fixed = window_data[E0_col].mean()
         try:
-            T_window = window_data[Tair_col].values
-            Reco_window = window_data[nee_col].values
-            E0_fixed = window_data[E0_col].mean() # NEW
             #popt, _ = curve_fit(lloyd_taylor_fixed, T_window, Reco_window, p0=[1.0])
             popt, _ = curve_fit(lambda T, R: lloyd_taylor_fixed(T, R, E0_fixed), T_window, Reco_window, p0=[1.0])
             R_ref_window = popt[0]
             #if(R_ref_window < 0.5):
             #    R_ref_window = np.nan
-            # Calculate the midpoint of the window.
-            window_midpoint = window_start + window_size / 2
-            return pd.Series({timestamp_col: window_midpoint, 'R_ref': R_ref_window, 'E0': E0_fixed})
         except RuntimeError:
-            # If the fitting fails, simply return None.
-            return None
+            pass
+        return {timestamp_col: pd.Timestamp(window_midpoint),
+                'R_ref': R_ref_window,
+                'E0': E0_fixed}
 
     # Apply the processing function on each window.
     results = [process_window(ws) for ws in window_starts]
     
     # Remove None results and create a DataFrame.
-    R_ref_df = pd.DataFrame([res for res in results if res is not None])
+    R_ref_df = pd.DataFrame(results)
     R_ref_df['R_ref'] = R_ref_df['R_ref'].astype(float)
     R_ref_df['E0'] = R_ref_df['E0'].astype(float)
     R_ref_df[timestamp_col] = pd.to_datetime(R_ref_df[timestamp_col], unit='ns')
@@ -323,4 +329,5 @@ def interpolate_R_ref(full_df: pd.DataFrame, R_ref_df: pd.DataFrame, timestamp_c
         method = 'time',
         limit_direction='both'
     )
+     
     return(R_ref_full['R_ref'].values)
