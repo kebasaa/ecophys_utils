@@ -91,6 +91,26 @@ def create_season_northern_hemisphere(timestamps: pd.Series) -> pd.Series:
     }
     return timestamps.dt.month.map(month_to_season)
     
+def season_order(temp, season_col='season', hemisphere='south'):
+    """
+    Order the seasons as categorical
+
+    Parameters
+    ----------
+    temp : pandas.DataFrame
+        DataFrame to save.
+    season_col : str
+        Name of the season column. Expects season names with to be capitalized. Default is 'season'
+    hemisphere : str
+        north or south. Default is south
+    """
+    if (hemisphere == 'north'):
+        season_order = ['Winter', 'Spring', 'Summer', 'Autumn']
+    else:
+        season_order = ['Summer', 'Autumn', 'Winter', 'Spring']
+    temp = pd.Categorical(temp, categories=season_order, ordered=True)
+    return temp
+    
 def save_df(temp: pd.DataFrame, output_path: str, output_fn: str, silent: bool = True) -> None:
     """
     Save DataFrame to CSV.
