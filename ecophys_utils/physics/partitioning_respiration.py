@@ -222,10 +222,6 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
     interpolate_R_ref : Interpolate R_ref values.
     """
     
-    # Define window and shift sizes as timedeltas.
-    window_size = pd.Timedelta(days=window_days)
-    shift_size = pd.Timedelta(days=shift_days)
-    
     # Determine the overall time range.
     start_time = temp[timestamp_col].min()
     end_time = temp[timestamp_col].max()
@@ -233,10 +229,26 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
     # Filter for night-time data and remove NA values.
     temp = temp[temp[dn_col] == 0].copy()
     temp = remove_nas(temp, cols=[Tair_col, nee_col])
+
+    # Ensure timestamp column is datetime (defensive).
+    temp[timestamp_col] = pd.to_datetime(temp[timestamp_col], errors='coerce')
+    
+    # Determine the overall time range (after filtering to night rows).
+    if temp.empty:
+        # Return explicit empty DataFrame with expected columns if no night data
+        return pd.DataFrame(columns=[timestamp_col, 'R_ref', 'E0'])
+    # Define window and shift sizes as timedeltas.
+    window_size = pd.Timedelta(days=window_days)
+    shift_size = pd.Timedelta(days=shift_days)
     
     # Generate window start times such that the entire window fits within the data range.
     window_starts = []
     current_start = start_time
+    # guard against NaT
+    if pd.isna(current_start) or pd.isna(end_time):
+        return {timestamp_col: pd.Timestamp(window_midpoint),
+                    'R_ref': np.nan,
+                    'E0': np.nan}
     while current_start + window_size <= end_time:
         window_starts.append(current_start)
         current_start += shift_size
@@ -261,15 +273,26 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
         # Fit R_ref with E0 fixed.
         T_window = window_data[Tair_col].values
         Reco_window = window_data[nee_col].values
-        E0_fixed = window_data[E0_col].mean()
+        # Compute mean of E0_col only if present
+        if E0_col in window_data.columns:
+            E0_fixed = window_data[E0_col].mean()
+        else:
+            E0_fixed = np.nan
+         # If E0_fixed is NaN, cannot fit with fixed E0 -> return NaNs for this window
+        if pd.isna(E0_fixed):
+            return {timestamp_col: pd.Timestamp(window_midpoint),
+                    'R_ref': np.nan,
+                    'E0': np.nan}
+
+        # initialize R_ref_window so it always exists even if fit fails
+        R_ref_window = np.nan
+        
         try:
-            #popt, _ = curve_fit(lloyd_taylor_fixed, T_window, Reco_window, p0=[1.0])
             popt, _ = curve_fit(lambda T, R: lloyd_taylor_fixed(T, R, E0_fixed), T_window, Reco_window, p0=[1.0])
             R_ref_window = popt[0]
-            #if(R_ref_window < 0.5):
-            #    R_ref_window = np.nan
         except RuntimeError:
-            pass
+            # leave R_ref_window as NaN on fit failure
+            R_ref_window = np.nan
         return {timestamp_col: pd.Timestamp(window_midpoint),
                 'R_ref': R_ref_window,
                 'E0': E0_fixed}
@@ -278,11 +301,26 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
     results = [process_window(ws) for ws in window_starts]
     
     # Remove None results and create a DataFrame.
+    results = [r for r in results if r is not None]
+    if len(results) == 0:
+        return pd.DataFrame(columns=[timestamp_col, 'R_ref', 'E0'])
+        
     R_ref_df = pd.DataFrame(results)
-    R_ref_df['R_ref'] = R_ref_df['R_ref'].astype(float)
-    R_ref_df['E0'] = R_ref_df['E0'].astype(float)
-    R_ref_df[timestamp_col] = pd.to_datetime(R_ref_df[timestamp_col], unit='ns')
-    #R_ref_df['E0'] = E0_fixed
+    #R_ref_df['R_ref'] = R_ref_df['R_ref'].astype(float)
+    #R_ref_df['E0'] = R_ref_df['E0'].astype(float)
+    #R_ref_df[timestamp_col] = pd.to_datetime(R_ref_df[timestamp_col], unit='ns')
+    # Avoid KeyError if column is missing
+    if 'R_ref' in R_ref_df.columns:
+        R_ref_df['R_ref'] = R_ref_df['R_ref'].astype(float)
+    else:
+        R_ref_df['R_ref'] = np.nan
+
+    if 'E0' in R_ref_df.columns:
+        R_ref_df['E0'] = R_ref_df['E0'].astype(float)
+    else:
+        R_ref_df['E0'] = np.nan
+    R_ref_df[timestamp_col] = pd.to_datetime(R_ref_df[timestamp_col], unit='ns', errors='coerce')
+    
     return(R_ref_df)
 
 def interpolate_R_ref(full_df: pd.DataFrame, R_ref_df: pd.DataFrame, timestamp_col: str = 'timestamp') -> np.ndarray:
