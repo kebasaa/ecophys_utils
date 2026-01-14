@@ -24,7 +24,7 @@ def total_water_conductance(T_leaf: Union[float, np.ndarray], P_Pa: Union[float,
     float or numpy.ndarray
         Total water conductance.
     """
-    from .physics import calculate_es
+    from . import calculate_es
     # Unit conversion
     E_mol_m2_s = E_mmol_m2_s * 10**(-3)
     water_conc_air = water_conc_air_mmol_mol * 10**(-3)
@@ -65,7 +65,7 @@ def leaf_conductance(T_leaf: Union[float, np.ndarray], P_Pa: Union[float, np.nda
     ----------
     Buckley (2005) https://doi.org/10.1111/j.1469-8137.2005.01543.x
     """
-    from .physics import calculate_es
+    from . import calculate_es
     # Unit conversion
     E_mol_m2_s = E_mmol_m2_s * 10**(-3)
     water_conc_air = water_conc_air_mmol_mol * 10**(-3)
