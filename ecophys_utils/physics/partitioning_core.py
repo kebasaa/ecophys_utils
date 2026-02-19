@@ -93,11 +93,15 @@ def calculate_uStar_threshold_reichstein(df: pd.DataFrame, Tair_col: str = 'TA_1
     """
     # Exclude rows where Tair is NA.
     mask = ~df[Tair_col].isna()
-    temp = df[mask].copy()
+    temp = df.loc[mask].copy()
 
-    # Optionally use only night-time data (make sure to reassign!)
+    # Optionally use only night-time data
     if use_night_only:
         temp = temp.loc[temp[dn_col] == 0].copy()
+        
+    # If no data after filtering -> return according to threshold_if_none_found
+    if temp.shape[0] == 0:
+        return na_uStar_threshold if threshold_if_none_found else np.nan
 
     # Create 6 temperature classes based on quantiles.
     temp['Tair_class'] = pd.qcut(temp[Tair_col], 6, labels=False)
