@@ -287,7 +287,7 @@ Water use efficiency calculations.
 
 ## How to Cite
 
-Muller (2025). *ecophys_utils: Python utilities library for ecophysiology tasks*
+Muller (2025). *ecophys_utils: Python utilities library for ecophysiology tasks*. DOI: https://doi.org/10.5281/zenodo.20540557
 
 ## License
 
