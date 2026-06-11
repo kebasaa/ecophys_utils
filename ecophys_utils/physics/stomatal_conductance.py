@@ -39,7 +39,9 @@ def total_water_conductance(T_leaf: Union[float, np.ndarray], P_Pa: Union[float,
     # water flux (transpiration)
     g_tw = (E_mol_m2_s*(1 - (water_conc_sat + water_conc_air)/2))/(water_conc_sat - water_conc_air) # Was + at the end (LI-6400, eq. 1-7)
     
-    return(np.abs(g_tw))
+    # WARNING: Removed np.abs() to expose non-physical values (e.g. negative conductance).
+    # Review inputs if negative values occur.
+    return(g_tw)
 
 def leaf_conductance(T_leaf: Union[float, np.ndarray], P_Pa: Union[float, np.ndarray], E_mmol_m2_s: Union[float, np.ndarray], water_conc_air_mmol_mol: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     """
@@ -76,7 +78,38 @@ def leaf_conductance(T_leaf: Union[float, np.ndarray], P_Pa: Union[float, np.nda
     
     g_w = E_mol_m2_s / (water_conc_sat - water_conc_air)
     #g_tw = E / VPD * 100
-    return(np.abs(g_w))
+    
+    # WARNING: Removed np.abs() to expose non-physical values (e.g. negative conductance).
+    # Review inputs if negative values occur.
+    return(g_w)
+
+def total_water_conductance_wrapper(df: pd.DataFrame, T_leaf_col: str = 'T_leaf', P_Pa_col: str = 'P_Pa', E_col: str = 'E_mmol_m2_s', h2o_air_col: str = 'water_conc_air_mmol_mol') -> pd.DataFrame:
+    """
+    Wrapper for total_water_conductance that adds the result and a negative value flag to a DataFrame.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input DataFrame.
+    T_leaf_col : str
+        Column name for leaf temperature.
+    P_Pa_col : str
+        Column name for pressure.
+    E_col : str
+        Column name for transpiration rate.
+    h2o_air_col : str
+        Column name for ambient water concentration.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with 'g_tw' and 'g_tw_neg_flag' columns added.
+    """
+    df = df.copy()
+    g_tw = total_water_conductance(df[T_leaf_col], df[P_Pa_col], df[E_col], df[h2o_air_col])
+    df['g_tw'] = g_tw
+    df['g_tw_neg_flag'] = g_tw < 0
+    return df
 
 def calculate_internal_concentration(conc_ambient: Union[float, np.ndarray], stomatal_cond: Union[float, np.ndarray], flux: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     """

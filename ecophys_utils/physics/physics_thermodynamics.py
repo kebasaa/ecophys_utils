@@ -31,7 +31,24 @@ def calculate_dewpointC(T_C: Union[float, np.ndarray], RH: Union[float, np.ndarr
     if np.any(RH < 0) or np.any(RH > 100):
         raise ValueError("Invalid input: RH must be between 0 and 100")
 
-    dp = 243.04*(np.log(RH/100)+((17.625*T_C)/(243.04+T_C)))/(17.625-np.log(RH/100)-((17.625*T_C)/(243.04+T_C)))
+    # Handle RH=0 to avoid log(0) errors
+    if isinstance(RH, (float, int, np.number)):
+        if RH <= 0:
+            return np.nan
+        dp = 243.04*(np.log(RH/100)+((17.625*T_C)/(243.04+T_C)))/(17.625-np.log(RH/100)-((17.625*T_C)/(243.04+T_C)))
+    else:
+        # Array-like input
+        dp = np.full_like(RH, np.nan, dtype=float)
+        mask = RH > 0
+        if np.any(mask):
+            rh_val = RH[mask]
+            # Handle T_C as scalar or array
+            if isinstance(T_C, (np.ndarray, list, pd.Series)):
+                tc_val = T_C[mask]
+            else:
+                tc_val = T_C
+            dp[mask] = 243.04*(np.log(rh_val/100)+((17.625*tc_val)/(243.04+tc_val)))/(17.625-np.log(rh_val/100)-((17.625*tc_val)/(243.04+tc_val)))
+    
     return(dp)
 
 # Calculate saturation vapour pressure from pressure and temperature
@@ -175,7 +192,7 @@ def calculate_rho_dry_air(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[flo
         raise ValueError("Invalid input: P_Pa must be > 0, T_C must be > -273.15, h2o_mmol_mol must be >= 0")
 
     # Constants
-    from ...units.constants import R_dry_air, R, M_d, M_h2o
+    from ..units.constants import R_dry_air, R, M_d, M_h2o
     
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
@@ -212,7 +229,7 @@ def calculate_rho_moist_air(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[f
         raise ValueError("Invalid input: P_Pa must be > 0, T_C must be > -273.15, h2o_mmol_mol must be >= 0")
 
     # Constants
-    from ...units.constants import R, M_d, M_h2o
+    from ..units.constants import R, M_d, M_h2o
     
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K
@@ -273,7 +290,7 @@ def calculate_cp_moist_air(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[fl
         Specific heat capacity of moist air in J/(kg·K).
     """
     # Constants
-    from ...units.constants import R, M_d, M_h2o
+    from ..units.constants import R, M_d, M_h2o
     
     # Unit conversions 
     T_K = T_C + 273.15           # Temperature in K

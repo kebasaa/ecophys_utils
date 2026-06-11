@@ -91,7 +91,13 @@ def annual_energy_budget(temp: pd.DataFrame, H_col: str = 'H_tot_filled', LE_col
         res_scaled = res_sum * (nb_halfhours / n_obs)
         
         # Calculate Energy Budget Ration (EBR)
-        ebr = (group[H_col].sum() + group[LE_col].sum())/(group[Rn_col].sum() - group[G_col].sum())
+        # We ensure the ratio is computed over the same timestamps by masking for consistent availability
+        mask_ebr = group[[H_col, LE_col, Rn_col, G_col]].notna().all(axis=1)
+        group_ebr = group.loc[mask_ebr]
+        if not group_ebr.empty:
+            ebr = (group_ebr[H_col].sum() + group_ebr[LE_col].sum())/(group_ebr[Rn_col].sum() - group_ebr[G_col].sum())
+        else:
+            ebr = np.nan
 
         # Calculate regression
         radiative_fluxes = group[Rn_col].to_numpy() - group[G_col].to_numpy() # independent variable (x)
