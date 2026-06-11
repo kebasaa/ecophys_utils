@@ -341,7 +341,7 @@ def partitioning_reichstein_wrapper(temp: pd.DataFrame, timestamp_col: str = 'ti
         n = len(group)
         return pd.Series({
             'R_ref_initial': R_ref_initial,
-            'E0': E0_fit,
+            'E0_fit': E0_fit,
             'n_rows': n
         })
     
