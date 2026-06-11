@@ -47,6 +47,8 @@ def calculate_cos_stomatal_conductance_ball_berry(T_C: Union[float, np.ndarray],
     VPD_kPa = VPD_Pa / 1000
     
     # Stomatal conductance
+    # WARNING: Review the math and units below. The factor of 2 and 10000 
+    # needs validation against standard conductance conventions and diffusivity ratios.
     g_s_cos = (f_h2o_mmol_m2_s1 * P_kPa * 10 / VPD_kPa) * 2 / 10000
     
     # Temporarily convert to df
