@@ -8,6 +8,8 @@
 ![Version](https://img.shields.io/badge/version-0.1-blue)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
+[![DOI](https://zenodo.org/badge/932117720.svg)](https://doi.org/10.5281/zenodo.20540557)
+
 A library of support functions for ecophysiology research, including Eddy Covariance data processing, flux calculations, partitioning, and more. Functions are organised into modules for easy access.
 
 ## Features
@@ -285,7 +287,7 @@ Water use efficiency calculations.
 
 ## How to Cite
 
-Muller (2025). *ecophys_utils: Python utilities library for ecophysiology tasks*
+Muller (2025). *ecophys_utils: Python utilities library for ecophysiology tasks*. DOI: https://doi.org/10.5281/zenodo.20540557
 
 ## License
 
