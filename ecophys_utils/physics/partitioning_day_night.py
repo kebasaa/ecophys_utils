@@ -67,7 +67,7 @@ def create_doy_block_id(timestamps: pd.Series) -> np.ndarray:
     temp['blockID'] = temp['timestamp'].dt.strftime('%j').astype(int)
     
     # calculate number of days to add to each doy
-    temp['days_in_year'] = temp['timestamp'].dt.is_leap_year.replace({True: 366, False: 365})
+    temp['days_in_year'] = np.where(temp['timestamp'].dt.is_leap_year, 366, 365)
     year_lengths = temp[['year','days_in_year']].drop_duplicates()
     year_lengths['annual_day_sums'] = year_lengths['days_in_year'].cumsum().shift(1, fill_value=0)
     # Combine and add the numbers

@@ -52,7 +52,8 @@ def respiration_from_nighttime_simple_interpolated(temp: pd.DataFrame, dn_col: s
     temp.loc[temp['timestamp'].dt.strftime('%H%M') != '0000', 'Reco'] = np.nan
 
     # Now interpolate Reco for all other times (limited to 1 day, or 48 half-hours)
-    temp['Reco'].interpolate(method='polynomial', order=2, limit=48, limit_direction='forward', axis=0, inplace=True)
+    #temp['Reco'].interpolate(method='polynomial', order=2, limit=48, limit_direction='forward', axis=0, inplace=True) # pandas v2 deprecated
+    temp['Reco'] = temp['Reco'].interpolate(method='polynomial', order=2, limit=48, limit_direction='forward', axis=0)
     return(temp['Reco'])
 
 def respiration_from_nighttime_simple_blocks(temp: pd.DataFrame, dn_col: str = 'dn', nee_col: str = 'nee') -> pd.Series:
