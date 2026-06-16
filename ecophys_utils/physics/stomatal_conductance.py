@@ -1,6 +1,7 @@
 # Stomatal conductance functions
 #-------------------------------
 import numpy as np
+import pandas as pd
 from typing import Union
 from ..units.constants import R
 
