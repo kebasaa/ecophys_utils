@@ -65,7 +65,32 @@ def convert_RH_to_mmol(RH: Union[float, np.ndarray], T_C: Union[float, np.ndarra
     h2o_mmol_mol = h2o_mol_mol * 10**3 # water in [mmol mol-1]
     
     return(h2o_mmol_mol)
-    
+
+def convert_mmol_to_RH(h2o_mmol_mol: Union[float, np.ndarray], T_C: Union[float, np.ndarray], P_Pa: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    """
+    Convert water vapor concentration to relative humidity.
+
+    Parameters
+    ----------
+    h2o_mmol_mol : float or numpy.ndarray
+        Water vapor concentration in mmol/mol.
+    T_C : float or numpy.ndarray
+        Temperature in degrees Celsius.
+    P_Pa : float or numpy.ndarray
+        Atmospheric pressure in Pascals.
+
+    Returns
+    -------
+    float or numpy.ndarray
+        Relative humidity in percent.
+    """
+    # From Eddypro manual: https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
+    es = calculate_es(T_C, P_Pa)              # Water vapor partial pressure at saturation (Pa)
+    h2o_mol_mol = h2o_mmol_mol * 10**(-3)    # Convert mmol/mol → mol/mol
+    e = h2o_mol_mol * P_Pa                    # Water vapor partial pressure (Pa)
+    RH = e / es * 100                         # RH (%)
+    return(RH)
+
 def convert_ppm_to_umol_m3(c_ppm: Union[float, np.ndarray], rho_dry_air: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     """
     Convert concentration from ppm to µmol/m³ of dry air.

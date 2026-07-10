@@ -3,8 +3,9 @@
 import numpy as np
 import pandas as pd
 from typing import Union
-from .physics_thermodynamics import calculate_VPD, convert_mmol_RH
+from .physics_thermodynamics import calculate_VPD
 from ..units.constants import R
+from ..units.units import convert_mmol_to_RH
 
 # Conductance calculations
 def calculate_cos_stomatal_conductance_ball_berry(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[float, np.ndarray], P_Pa: Union[float, np.ndarray], f_h2o_mmol_m2_s1: Union[float, np.ndarray], f_co2_umol_m2_s1: Union[float, np.ndarray], co2_umol_mol_ambient: Union[float, np.ndarray], PAR: Union[float, np.ndarray]) -> pd.Series:
@@ -40,7 +41,7 @@ def calculate_cos_stomatal_conductance_ball_berry(T_C: Union[float, np.ndarray],
     # Note: T_C is the air temperature in C
     # Calculate some initial values
     VPD_Pa = calculate_VPD(T_C, h2o_mmol_mol, P_Pa)
-    RH = convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa)
+    RH = convert_mmol_to_RH(h2o_mmol_mol, T_C, P_Pa)
     
     # Pressure in hPa
     P_kPa   = P_Pa / 1000

@@ -130,43 +130,6 @@ def calculate_VPD(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[float, np.n
     VPD = es - e                   # VPD (Pa)
     return(VPD)
 
-# Converts water concentration [mmol mol] to RH [%]
-def convert_mmol_RH(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[float, np.ndarray], P_Pa: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    """
-    Convert water vapor concentration to relative humidity.
-
-    Parameters
-    ----------
-    T_C : float or numpy.ndarray
-        Air temperature in degrees Celsius.
-    h2o_mmol_mol : float or numpy.ndarray
-        Water vapor concentration in mmol/mol.
-    P_Pa : float or numpy.ndarray
-        Atmospheric pressure in Pascals.
-
-    Returns
-    -------
-    float or numpy.ndarray
-        Relative humidity as a percentage (0-100).
-
-    See Also
-    --------
-    calculate_VPD : Calculate vapor pressure deficit.
-    """
-    # Input validation
-    if np.any(P_Pa <= 0) or np.any(T_C < -273.15) or np.any(h2o_mmol_mol < 0):
-        raise ValueError("Invalid input: P_Pa must be > 0, T_C must be > -273.15, h2o_mmol_mol must be >= 0")
-
-    # Unit conversions 
-    T_K = T_C + 273.15           # Temperature in K
-    h2o_mol_mol = h2o_mmol_mol * 10**(-3) # water in [mol mol-1]
-    
-    # From Eddypro manual: https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
-    e = h2o_mol_mol * P_Pa         # Water vapor partial pressure (Pa)
-    es = calculate_es(T_C, P_Pa)   # Water vapor partial pressure at saturation (Pa)
-    RH = e/es * 100                # RH (%)
-    return(RH)
-
 # Density of dry air
 # - https://www.licor.com/env/support/EddyPro/topics/calculate-micromet-variables.html
 def calculate_rho_dry_air(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[float, np.ndarray], P_Pa: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -297,7 +260,9 @@ def calculate_cp_moist_air(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[fl
     h2o_mol_mol = h2o_mmol_mol * 10**(-3) # water in [mol mol-1]
 
     # RH
-    RH = convert_mmol_RH(T_C, h2o_mmol_mol, P_Pa)
+    es = calculate_es(T_C, P_Pa)
+    h2o_mol_mol_rh = h2o_mmol_mol * 10**(-3)
+    RH = h2o_mol_mol_rh * P_Pa / es * 100
 
     # Water vapor heat capacity at constant pressure (cp_h2o, J kg-1 K-1)
     cp_h2o = 1859 + 0.13*RH + (0.193 + 5.6*10**(-3) * RH)*T_C + (10**(-3) + 5 * 10**(-5)*RH)*T_C**2
