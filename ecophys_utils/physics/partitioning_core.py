@@ -27,7 +27,9 @@ def calculate_nee(co2_flux: Union[float, np.ndarray], storage_flux: Union[float,
     nee = co2_flux + storage_flux
     return(nee)
     
-def calculate_gpp(nee: Union[float, np.ndarray], reco: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+def calculate_gpp(nee: Union[float, np.ndarray], reco: Union[float, np.ndarray],
+                  day_night: Optional[Union[np.ndarray, pd.Series]] = None,
+                  clip_negative: bool = True) -> Union[float, np.ndarray]:
     """
     Calculate gross primary production (GPP).
 
@@ -37,22 +39,49 @@ def calculate_gpp(nee: Union[float, np.ndarray], reco: Union[float, np.ndarray])
         Net ecosystem exchange.
     reco : float or numpy.ndarray
         Ecosystem respiration.
+    day_night : numpy.ndarray or pandas.Series or None, optional
+        Day (1) / night (0) indicator, e.g. the output of is_day(). When given, GPP is
+        forced to exactly zero at night. PASS THIS: see the note below on why omitting it
+        biases the result. Default is None, for backwards compatibility.
+    clip_negative : bool, optional
+        Set negative GPP to zero. Default is True.
 
     Returns
     -------
     float or numpy.ndarray
-        Gross primary production, with negative values set to zero.
+        Gross primary production, zero at night when day_night is supplied, and with
+        negative values set to zero unless clip_negative is False.
 
     See Also
     --------
     calculate_nee : Calculate net ecosystem exchange.
+    ecophys_utils.physics.partitioning_day_night.is_day : Produces the day_night column.
+    ecophys_utils.physics.partitioning_daytime.partition_lasslop : Daytime partitioning,
+        which applies the equivalent guard on PAR instead.
 
     Notes
     -----
     GPP is calculated as respiration minus NEE. Negative GPP values are set to zero.
+
+    WHY day_night MATTERS. There is no photosynthesis in the dark, so GPP is zero at
+    night by definition. Without the mask, night-time GPP evaluates to
+    `reco_modelled - nee_measured`, which is a zero-centred residual rather than a flux -
+    and `clip_negative` then rectifies it, keeping the positive half and discarding the
+    negative half. Rectifying symmetric noise produces a strictly positive mean. At
+    Jonkershoek that came to +0.91 umol m-2 s-1 over every night-time half-hour, or
+    +162 to +177 g C m-2 yr-1 of GPP that never occurred. NEE and Reco are unaffected;
+    the error lands entirely on GPP and on the Reco/GPP ratio derived from it.
     """
     gpp = reco - nee
-    gpp = np.where(gpp < 0, 0, gpp)
+    if day_night is not None:
+        # Zero the night, but only where the inputs were present. Setting GPP to 0 for a
+        # night half-hour with no NEE measurement would be defensible - GPP is zero at
+        # night by definition, not by observation - but it would report data coverage
+        # that does not exist. The annual sum is unaffected either way, because every
+        # observed night value is 0, so keep the coverage statistics honest instead.
+        gpp = np.where((np.asarray(day_night) == 0) & np.isfinite(gpp), 0.0, gpp)
+    if clip_negative:
+        gpp = np.where(gpp < 0, 0, gpp)
     return(gpp)
 
 def calculate_uStar_threshold_reichstein(df: pd.DataFrame, Tair_col: str = 'TA_1_1_1', dn_col: str = 'day_night', uStar_col: str = 'u*', nee_col: str = 'nee', filter_threshold: float = 0.99, use_night_only: bool = True, min_uStar_threshold: float = 0.01, na_uStar_threshold: float = 0.4, threshold_if_none_found: bool = False) -> float:
