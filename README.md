@@ -217,7 +217,7 @@ Physical calculations for atmospheric properties, fluxes, and conductance.
 - `calculate_gas_flux(T_C, P_Pa, h2o_mmol_mol_ambient, h2o_mmol_mol_chamber, gas_mol_mol_ambient, gas_mol_mol_chamber, airflow_lpm, area_m2)`: Calculate gas flux accounting for water vapor dilution.
 
 #### Conductance
-- `calculate_cos_stomatal_conductance_ball_berry(T_C, h2o_mmol_mol, P_Pa, f_h2o_mmol_m2_s1, f_co2_umol_m2_s1, co2_umol_mol_ambient, PAR)`: Calculate COS stomatal conductance using Ball-Berry model.
+- `calculate_cos_stomatal_conductance_ball_berry(T_C, h2o_mmol_mol, P_Pa, f_h2o_mmol_m2_s1, f_co2_umol_m2_s1, co2_umol_mol_ambient, PAR, diffusivity_ratio=R_ag_COS, bb_slope=17.207, bb_intercept=0.0487, bb_rh_min=70, bb_par_min=50)`: COS stomatal conductance (mol m⁻² s⁻¹) following Kooijmans et al. (2019): from transpiration and VPD, or from the Ball-Berry model at high RH in daylight, divided by the H2O/COS diffusivity ratio.
 - `calculate_cos_total_conductance(f_cos_pmol_m2_s1, cos_pmol_mol_ambient)`: Calculate total COS conductance.
 - `calculate_cos_internal_conductance(g_total, g_stomatal)`: Calculate internal COS conductance.
 - `relative_uptake(f_cos_pmol_m2_s1, f_co2_umol_m2_s1, cos_pmol_mol_ambient, co2_umol_mol_ambient)`: Calculate leaf/soil relative COS uptake.
@@ -304,8 +304,8 @@ Energy budget analysis and gap-filling.
 - `turbulent_energy_fluxes_gapfilling(temp, H_col='H', H_strg_col='H_strg', LE_col='LE', LE_strg_col='LE_strg', Rn_col='Rn', G_col='G', interp=True, interp_hours=2, dn_col=None, ebr_min_rn=50.0)`: Gap-fill turbulent energy fluxes. The half-hourly `EBR` is only computed where Rn - G exceeds `ebr_min_rn` (and in daylight when `dn_col` is given).
 - `calculate_bowen_ratio(H, LE)`: Calculate Bowen ratio (H/LE).
 - `calculate_albedo(SW_in, SW_out)`: Calculate surface albedo.
-- `calculate_longwave_radiation(T_surf, emissivity=0.97, LW_in=None)`: Calculate longwave radiation components.
-- `calculate_surface_temperature_from_longwave(LW_out, emissivity=0.97, reflectance=None)`: Calculate surface temperature from longwave radiation.
+- `calculate_longwave_radiation(T_surf, emissivity=0.97, LW_in=None)`: Calculate longwave radiation components for a grey body; with `LW_in`, `LW_out` includes the reflected part.
+- `calculate_surface_temperature_from_longwave(LW_out, emissivity=0.97, reflectance=None, LW_in=None)`: Calculate surface temperature from longwave radiation. Pass `LW_in` to remove the reflected part of the incoming longwave.
 
 ### stomatal_conductance
 Stomatal conductance calculations.
@@ -313,6 +313,8 @@ Stomatal conductance calculations.
 - `total_water_conductance(T_leaf, P_Pa, E_mmol_m2_s, water_conc_air_mmol_mol)`: Calculate total water conductance.
 - `leaf_conductance(T_leaf, P_Pa, E_mmol_m2_s, water_conc_air_mmol_mol)`: Calculate leaf conductance.
 - `calculate_internal_concentration(conc_ambient, stomatal_cond, flux)`: Calculate internal concentration.
+- `calculate_biochemical_conductance(T_leaf, LAI, E0=40000.0, T_ref=20.0)`: Biochemical conductance with an Arrhenius temperature response (E0 in J/mol).
+- `calculate_mesophyll_conductance(T_leaf, LAI, T_opt=28.8, omega=0.61)`: Mesophyll conductance with a log-normal temperature response peaking at `T_opt` (°C).
 
 ### wue
 Water use efficiency calculations.

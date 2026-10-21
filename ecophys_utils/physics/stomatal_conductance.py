@@ -135,9 +135,14 @@ def calculate_internal_concentration(conc_ambient: Union[float, np.ndarray], sto
     Ci = flux / stomatal_cond + conc_ambient
     return(Ci)
 
-def calculate_biochemical_conductance(T_leaf: Union[float, np.ndarray], LAI: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+def calculate_biochemical_conductance(T_leaf: Union[float, np.ndarray], LAI: Union[float, np.ndarray], E0: float = 40000.0, T_ref: float = 20.0) -> Union[float, np.ndarray]:
     """
     Calculate biochemical conductance.
+
+    Canopy-scale conductance with an Arrhenius temperature response. 40 kJ/mol is the
+    activation energy of carbonic anhydrase used in SiB4 (Cho et al. 2023, Biogeosciences
+    20:2573). Unlike their formulation, this one has no high-temperature deactivation, so
+    it keeps rising above the enzyme's optimum.
 
     Parameters
     ----------
@@ -145,18 +150,18 @@ def calculate_biochemical_conductance(T_leaf: Union[float, np.ndarray], LAI: Uni
         Leaf temperature in degrees Celsius.
     LAI : float or numpy.ndarray
         Leaf area index.
+    E0 : float, optional
+        Activation energy in J/mol. Default is 40000 (40 kJ/mol).
+    T_ref : float, optional
+        Reference temperature in degrees Celsius. Default is 20.
 
     Returns
     -------
     float or numpy.ndarray
         Biochemical conductance.
     """
-    # Constants
-    E0 = 40
-    ref_T_C = 20
-
     # Preparations
-    ref_T_K = ref_T_C + 273.15
+    ref_T_K = T_ref + 273.15
     T_leaf_K = T_leaf + 273.15
 
     # Biochemical conductance
@@ -164,9 +169,13 @@ def calculate_biochemical_conductance(T_leaf: Union[float, np.ndarray], LAI: Uni
 
     return(g_ca)
 
-def calculate_mesophyll_conductance(T_leaf: Union[float, np.ndarray], LAI: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+def calculate_mesophyll_conductance(T_leaf: Union[float, np.ndarray], LAI: Union[float, np.ndarray], T_opt: float = 28.8, omega: float = 0.61) -> Union[float, np.ndarray]:
     """
     Calculate mesophyll conductance.
+
+    Log-normal temperature response, exp(-0.5 * (ln(T / T_opt) / omega)^2), which peaks
+    at 0.188 * LAI when T = T_opt. T is in degrees Celsius, so the function is only
+    defined above 0 C. The source of the constants is not documented.
 
     Parameters
     ----------
@@ -174,12 +183,16 @@ def calculate_mesophyll_conductance(T_leaf: Union[float, np.ndarray], LAI: Union
         Leaf temperature in degrees Celsius.
     LAI : float or numpy.ndarray
         Leaf area index.
+    T_opt : float, optional
+        Optimum temperature in degrees Celsius. Default is 28.8.
+    omega : float, optional
+        Width of the response (in log units). Default is 0.61.
 
     Returns
     -------
     float or numpy.ndarray
         Mesophyll conductance.
     """
-    g_m = 0.188*LAI * np.exp(-0.5*(np.log((T_leaf/28.8)/0.61))**2)
+    g_m = 0.188*LAI * np.exp(-0.5*(np.log(T_leaf/T_opt)/omega)**2)
 
     return(g_m)

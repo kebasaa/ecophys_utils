@@ -6,11 +6,26 @@ from typing import Union
 from .physics_thermodynamics import calculate_VPD
 from ..units.constants import R
 from ..units.units import convert_mmol_to_RH
+from ..gases.gas_parameters import R_ag_COS
 
 # Conductance calculations
-def calculate_cos_stomatal_conductance_ball_berry(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[float, np.ndarray], P_Pa: Union[float, np.ndarray], f_h2o_mmol_m2_s1: Union[float, np.ndarray], f_co2_umol_m2_s1: Union[float, np.ndarray], co2_umol_mol_ambient: Union[float, np.ndarray], PAR: Union[float, np.ndarray]) -> pd.Series:
+def calculate_cos_stomatal_conductance_ball_berry(T_C: Union[float, np.ndarray], h2o_mmol_mol: Union[float, np.ndarray], P_Pa: Union[float, np.ndarray], f_h2o_mmol_m2_s1: Union[float, np.ndarray], f_co2_umol_m2_s1: Union[float, np.ndarray], co2_umol_mol_ambient: Union[float, np.ndarray], PAR: Union[float, np.ndarray],
+                                                  diffusivity_ratio: float = R_ag_COS, bb_slope: float = 17.207, bb_intercept: float = 0.0487,
+                                                  bb_rh_min: float = 70.0, bb_par_min: float = 50.0) -> pd.Series:
     """
-    Calculate COS stomatal conductance using the Ball-Berry model.
+    Calculate COS stomatal conductance, from transpiration or from the Ball-Berry model.
+
+    Follows Kooijmans et al. (2019), PNAS 116:2470-2475. Stomatal conductance to water
+    vapour is taken from transpiration normalised by VPD, g_s,H2O = E * P / VPD. Where RH
+    is high and the sun is up, measured transpiration is unreliable (in chambers, water
+    adsorbs on the walls) and VPD is small, so g_s,H2O comes instead from the Ball-Berry
+    model, g_s,H2O = m * A * h / Ca + g0 (Ball et al. 1987; Kooijmans et al. 2019, eq. 3),
+    with m and g0 fitted to the site's own low-RH data. Net CO2 uptake (-f_co2) stands in
+    for assimilation A, as in Kooijmans et al. Both are converted to COS by dividing by the
+    ratio of the H2O and COS diffusivities.
+
+    Air VPD is used, not leaf-to-air VPD, and there is no boundary-layer or aerodynamic
+    resistance: a big-leaf approximation.
 
     Parameters
     ----------
@@ -23,16 +38,31 @@ def calculate_cos_stomatal_conductance_ball_berry(T_C: Union[float, np.ndarray],
     f_h2o_mmol_m2_s1 : float or numpy.ndarray
         Water vapor flux in mmol/m²/s.
     f_co2_umol_m2_s1 : float or numpy.ndarray
-        CO2 flux in µmol/m²/s.
+        CO2 flux in µmol/m²/s, negative for uptake.
     co2_umol_mol_ambient : float or numpy.ndarray
         Ambient CO2 concentration in µmol/mol.
     PAR : float or numpy.ndarray
-        Photosynthetically active radiation.
+        Photosynthetically active radiation (µmol/m²/s).
+    diffusivity_ratio : float, optional
+        Ratio of the H2O and COS diffusivities. Default R_ag_COS (1.955). Kooijmans et
+        al. (2019) use 2.00 (Seibt et al. 2010); Stimler et al. (2010) and SiB4 (Cho et
+        al. 2023) use 1.94.
+    bb_slope, bb_intercept : float, optional
+        Ball-Berry slope m (dimensionless) and intercept g0 (mol/m²/s) for H2O.
+        Defaults 17.207 and 0.0487 are site-fitted values; refit them for other sites.
+    bb_rh_min, bb_par_min : float, optional
+        The Ball-Berry model is used where RH > bb_rh_min (%) and PAR > bb_par_min.
+        Defaults 70 and 50.
 
     Returns
     -------
     pandas.Series
-        Stomatal conductance for COS.
+        Stomatal conductance for COS (mol/m²/s).
+
+    References
+    ----------
+    Kooijmans, L. M. J., et al. (2019). Influences of light and humidity on carbonyl
+    sulfide-based estimates of photosynthesis. PNAS, 116(7), 2470-2475.
     """
     # Input validation
     if np.any(P_Pa <= 0) or np.any(T_C < -273.15) or np.any(h2o_mmol_mol < 0) or np.any(co2_umol_mol_ambient <= 0) or np.any(PAR < 0):
@@ -42,24 +72,19 @@ def calculate_cos_stomatal_conductance_ball_berry(T_C: Union[float, np.ndarray],
     # Calculate some initial values
     VPD_Pa = calculate_VPD(T_C, h2o_mmol_mol, P_Pa)
     RH = convert_mmol_to_RH(h2o_mmol_mol, T_C, P_Pa)
-    
-    # Pressure in hPa
-    P_kPa   = P_Pa / 1000
-    VPD_kPa = VPD_Pa / 1000
-    
-    # Stomatal conductance
-    # WARNING: Review the math and units below. The factor of 2 and 10000 
-    # needs validation against standard conductance conventions and diffusivity ratios.
-    g_s_cos = (f_h2o_mmol_m2_s1 * P_kPa * 10 / VPD_kPa) * 2 / 10000
-    
+
+    # Stomatal conductance to H2O from transpiration [mol m-2 s-1], then to COS
+    g_s_h2o = f_h2o_mmol_m2_s1 * 1e-3 * P_Pa / VPD_Pa
+    g_s_cos = g_s_h2o / diffusivity_ratio
+
     # Temporarily convert to df
     temp = pd.DataFrame({'rh': RH, 'par': PAR, 'f_co2': f_co2_umol_m2_s1, 'co2_a': co2_umol_mol_ambient, 'g_s': g_s_cos})
-    
-    # Ball-Berry correction
-    day_par_min = 50  # Define constant for minimum PAR for day
+
+    # Ball-Berry at high RH in daylight: A * h / Ca [mol m-2 s-1], with h as a fraction
     temp['bbm'] = -temp['f_co2'] * temp['rh'] * 0.01 / temp['co2_a']
-    temp.loc[(temp['rh'] > 70) & (temp['par'] > day_par_min), 'g_s'] = 17.207 * temp.loc[(temp['rh'] > 70) & (temp['par'] > day_par_min), 'bbm'] / 0.0487
-    
+    use_bb = (temp['rh'] > bb_rh_min) & (temp['par'] > bb_par_min)
+    temp.loc[use_bb, 'g_s'] = (bb_slope * temp.loc[use_bb, 'bbm'] + bb_intercept) / diffusivity_ratio
+
     return(temp['g_s'])
 
 def calculate_cos_total_conductance(f_cos_pmol_m2_s1: Union[float, np.ndarray], cos_pmol_mol_ambient: Union[float, np.ndarray]) -> Union[float, np.ndarray]:

@@ -248,7 +248,8 @@ def calculate_bowen_ratio(H: Union[float, np.ndarray], LE: Union[float, np.ndarr
     Calculate Bowen ratio (β = H / LE).
 
     The Bowen ratio indicates the partitioning of available energy into sensible (H) and latent (LE) heat fluxes.
-    Values: β < 1 (energy-limited/wet), β > 1 (water-limited/dry), β ≈ 0 (adiabatic).
+    Values: β < 1 (energy-limited/wet), β > 1 (water-limited/dry), β ≈ 0 (nearly all
+    available energy goes to evaporation).
 
     Parameters
     ----------
@@ -302,8 +303,9 @@ def calculate_longwave_radiation(T_surf: Union[float, np.ndarray], emissivity: f
     """
     Calculate longwave radiation components.
 
-    Computes outgoing longwave radiation (LW_out) using the Stefan-Boltzmann law.
-    If incoming longwave is provided, also calculates net longwave radiation.
+    Computes outgoing longwave radiation (LW_out) using the Stefan-Boltzmann law for a
+    grey body. If incoming longwave is provided, LW_out also includes the reflected part
+    of it, and net longwave radiation is calculated.
 
     Parameters
     ----------
@@ -321,10 +323,13 @@ def calculate_longwave_radiation(T_surf: Union[float, np.ndarray], emissivity: f
 
     Notes
     -----
-    Assumes blackbody approximation. Stefan-Boltzmann constant = 5.67e-8 W/m²/K⁴.
+    Grey body: LW_out = ε σ T⁴ + (1 - ε) LW_in, the second term only when LW_in is given.
+    Without LW_in, 'LW_out' is the emitted part alone.
     """
     from ..units.constants import sigma
     LW_out = emissivity * sigma * T_surf**4
+    if LW_in is not None:
+        LW_out = LW_out + (1 - emissivity) * LW_in
 
     result = {'LW_out': LW_out}
     if LW_in is not None:
@@ -333,11 +338,12 @@ def calculate_longwave_radiation(T_surf: Union[float, np.ndarray], emissivity: f
     return result
 
 
-def calculate_surface_temperature_from_longwave(LW_out: Union[float, np.ndarray], emissivity: float = 0.97, reflectance: Optional[float] = None) -> Union[float, np.ndarray]:
+def calculate_surface_temperature_from_longwave(LW_out: Union[float, np.ndarray], emissivity: float = 0.97, reflectance: Optional[float] = None, LW_in: Optional[Union[float, np.ndarray]] = None) -> Union[float, np.ndarray]:
     """
     Calculate surface temperature from outgoing longwave radiation.
 
-    Uses the Stefan-Boltzmann law: T = (LW_out / (ε * σ))^(1/4)
+    Uses the Stefan-Boltzmann law for a grey body:
+    T = ((LW_out - (1 - ε) * LW_in) / (ε * σ))^(1/4)
     If reflectance is provided, emissivity is adjusted as ε = 1 - ρ (for opaque surfaces).
 
     Parameters
@@ -348,22 +354,24 @@ def calculate_surface_temperature_from_longwave(LW_out: Union[float, np.ndarray]
         Surface emissivity (default 0.97). Ignored if reflectance is provided.
     reflectance : float, optional
         Surface reflectance for longwave (ρ). If provided, ε = 1 - ρ.
+    LW_in : float or numpy.ndarray, optional
+        Incoming longwave radiation (W/m²), whose reflected part is removed from LW_out.
+        PASS IT if available: without it, the reflected radiation is taken as emitted and
+        the temperature comes out too high (about +1.7 K at ε = 0.97, T = 300 K,
+        LW_in = 350 W/m²).
 
     Returns
     -------
     float or numpy.ndarray
         Surface temperature (K).
-
-    Notes
-    -----
-    Assumes blackbody approximation. Stefan-Boltzmann constant = 5.67e-8 W/m²/K⁴.
     """
     from ..units.constants import sigma
-    
+
     if reflectance is not None:
         emissivity = 1 - reflectance  # Kirchhoff's law for opaque surfaces
 
+    emitted = LW_out if LW_in is None else LW_out - (1 - emissivity) * LW_in
     with np.errstate(divide='ignore', invalid='ignore'):
-        T_surf = (LW_out / (emissivity * sigma)) ** (1/4)
+        T_surf = (emitted / (emissivity * sigma)) ** (1/4)
 
     return T_surf
