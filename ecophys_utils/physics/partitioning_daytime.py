@@ -35,14 +35,14 @@
 # uptake to respiration instead.
 
 import warnings
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 
 from .partitioning_respiration import lloyd_taylor
-from .gapfilling import _check_vpd_unit
+from .gapfilling import _as_list, _check_vpd_unit
 
 # VPD threshold above which beta declines (Lasslop et al. use 10 hPa), per unit
 _VPD0 = {'hpa': 10.0, 'kpa': 1.0, 'pa': 1000.0}
@@ -174,7 +174,7 @@ def partition_lasslop(temp: pd.DataFrame, nee_col: str = 'nee_f', par_col: Optio
                       sw_col: str = 'SW_IN_1_1_1', sw_to_par: float = 2.1,
                       tair_col: str = 'Tair', vpd_col: str = 'VPD', E0_col: str = 'E0',
                       dn_col: str = 'day_night', timestamp_col: str = 'timestamp',
-                      group_col: Optional[str] = None, window_days: int = 4,
+                      group_col: Optional[Union[str, Sequence[str]]] = None, window_days: int = 4,
                       step_days: int = 2, min_points: int = 30, vpd0: Optional[float] = None,
                       vpd_unit: str = 'hPa',
                       suffix: str = '_lasslop') -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -203,10 +203,10 @@ def partition_lasslop(temp: pd.DataFrame, nee_col: str = 'nee_f', par_col: Optio
         incoming shortwave.
     tair_col, vpd_col, E0_col, dn_col, timestamp_col : str, optional
         Driver, temperature-sensitivity, day/night and timestamp columns.
-    group_col : str or None, optional
-        Windows never span a group boundary. Default None (one block). Pass e.g. 'fire'
-        for a record spanning a disturbance - the same guard as in gapfill_mds, for the
-        same reason.
+    group_col : str, sequence of str or None, optional
+        Column, or list of columns, whose groups no window may span, e.g. 'site' or
+        ['site', 'period']. Default None (one block). Use the same grouping as in
+        gapfill_mds, for the same reason.
     window_days, step_days : int, optional
         Overlapping window width and step. Defaults 4 and 2, as in Lasslop et al.
     min_points : int, optional
@@ -243,7 +243,10 @@ def partition_lasslop(temp: pd.DataFrame, nee_col: str = 'nee_f', par_col: Optio
         temp['_par'] = temp[sw_col] * sw_to_par
         par_col = '_par'
 
-    groups = [(None, temp)] if group_col is None else list(temp.groupby(group_col, observed=True))
+    group_cols = _as_list(group_col)
+    # A single column is grouped by name so that labels stay scalars rather than 1-tuples
+    groups = ([(None, temp)] if not group_cols else
+              list(temp.groupby(group_cols[0] if len(group_cols) == 1 else group_cols, observed=True)))
 
     # Windows are matched back to their group by position, because a label of None (no
     # grouping) never compares equal to itself in a pandas column

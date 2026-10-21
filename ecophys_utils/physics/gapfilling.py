@@ -21,7 +21,7 @@
 # gapfill_report() before treating their agreement as corroboration.
 
 import warnings
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -43,6 +43,15 @@ MDS_PASSES: List[Tuple[str, int, int]] = (
 _VPD_TOL = {'hpa': 5.0, 'kpa': 0.5, 'pa': 500.0}
 # Rough plausibility range of a typical median VPD, used only to catch a mislabelled unit
 _VPD_PLAUSIBLE_MEDIAN = {'hpa': (0.5, 60.0), 'kpa': (0.05, 6.0), 'pa': (50.0, 6000.0)}
+
+
+def _as_list(cols: Optional[Union[str, Sequence[str]]]) -> List[str]:
+    """One column name, a sequence of them, or None, as a list."""
+    if cols is None:
+        return []
+    if isinstance(cols, str):
+        return [cols]
+    return list(cols)
 
 
 def _sw_tolerance(sw: np.ndarray) -> np.ndarray:
@@ -144,7 +153,7 @@ def _fill_one_group(flux: np.ndarray, sw: np.ndarray, tair: np.ndarray, vpd: np.
 
 def gapfill_mds(temp: pd.DataFrame, flux_col: str = 'nee_f', sw_col: str = 'SW_IN_1_1_1',
                 tair_col: str = 'Tair', vpd_col: str = 'VPD', timestamp_col: str = 'timestamp',
-                group_col: Optional[str] = None, period_mins: int = 30,
+                group_col: Optional[Union[str, Sequence[str]]] = None, period_mins: int = 30,
                 tair_tol: float = 2.5, vpd_tol: Optional[float] = None, vpd_unit: str = 'hPa',
                 min_n: int = 2, passes: Optional[Sequence[Tuple[str, int, int]]] = None,
                 suffix: str = '_fill') -> pd.DataFrame:
@@ -166,11 +175,13 @@ def gapfill_mds(temp: pd.DataFrame, flux_col: str = 'nee_f', sw_col: str = 'SW_I
         and vapour pressure deficit (see vpd_unit).
     timestamp_col : str, optional
         Timestamp column. Default is 'timestamp'.
-    group_col : str or None, optional
-        Column defining blocks that look-up windows must never cross. Default is None
-        (one block). THIS MATTERS when the record spans a disturbance: filling post-fire
-        gaps from pre-fire observations would manufacture exactly the pre/post difference
-        such a study sets out to test, so pass e.g. 'fire' unless the record is genuinely
+    group_col : str, sequence of str or None, optional
+        Column, or list of columns, defining blocks that look-up windows must never
+        cross, e.g. 'site' or ['site', 'period']. Default is None (one block). THIS
+        MATTERS when the record spans a change in the ecosystem or the setup (a
+        disturbance, a management change, a new sensor): filling gaps on one side from
+        observations on the other would manufacture exactly the difference such a
+        comparison sets out to test, so group by it unless the record is genuinely
         homogeneous.
     period_mins : int, optional
         Averaging period in minutes. Default is 30.
@@ -219,7 +230,8 @@ def gapfill_mds(temp: pd.DataFrame, flux_col: str = 'nee_f', sw_col: str = 'SW_I
     if passes is None:
         passes = MDS_PASSES
 
-    for col in (flux_col, sw_col, tair_col, vpd_col, timestamp_col):
+    group_cols = _as_list(group_col)
+    for col in [flux_col, sw_col, tair_col, vpd_col, timestamp_col] + group_cols:
         if col not in temp.columns:
             raise KeyError(f"Column {col!r} not found in the dataframe")
 
@@ -234,7 +246,9 @@ def gapfill_mds(temp: pd.DataFrame, flux_col: str = 'nee_f', sw_col: str = 'SW_I
     temp[f'{fill_col}_sd'] = np.nan
     temp[f'{fill_col}_window'] = np.nan
 
-    groups = [(None, temp)] if group_col is None else list(temp.groupby(group_col, observed=True))
+    # A single column is grouped by name so that labels stay scalars rather than 1-tuples
+    groups = ([(None, temp)] if not group_cols else
+              list(temp.groupby(group_cols[0] if len(group_cols) == 1 else group_cols, observed=True)))
 
     for label, group in groups:
         _check_regular_grid(group[timestamp_col], period_mins, label)
@@ -269,7 +283,7 @@ def gapfill_mds(temp: pd.DataFrame, flux_col: str = 'nee_f', sw_col: str = 'SW_I
 
 
 def gapfill_report(temp: pd.DataFrame, flux_col: str = 'nee_f', suffix: str = '_fill',
-                   group_col: Optional[str] = None, dn_col: str = 'day_night',
+                   group_col: Optional[Union[str, Sequence[str]]] = None, dn_col: str = 'day_night',
                    year_col: Optional[str] = 'year') -> pd.DataFrame:
     """
     Summarise how much of a flux was measured versus filled, and at what quality.
@@ -286,8 +300,8 @@ def gapfill_report(temp: pd.DataFrame, flux_col: str = 'nee_f', suffix: str = '_
         Original flux column name. Default is 'nee_f'.
     suffix : str, optional
         Suffix used when filling. Default is '_fill'.
-    group_col : str or None, optional
-        Extra grouping column, e.g. 'fire'. Default is None.
+    group_col : str, sequence of str or None, optional
+        Extra grouping column, or list of columns, e.g. 'site'. Default is None.
     dn_col : str, optional
         Day/night indicator (1 = day, 0 = night). Default is 'day_night'.
     year_col : str or None, optional
@@ -296,22 +310,23 @@ def gapfill_report(temp: pd.DataFrame, flux_col: str = 'nee_f', suffix: str = '_
     Returns
     -------
     pandas.DataFrame
-        Rows per group x year x day/night, with the number of periods, the measured
-        fraction, and the fraction filled at each quality class (including qc -1,
-        i.e. not fillable).
+        Rows per group x year x day/night ('day_or_night'), with the number of periods,
+        the measured fraction, and the fraction filled at each quality class (including
+        qc -1, i.e. not fillable).
     """
     qc_col = f'{flux_col}{suffix}_qc'
     if qc_col not in temp.columns:
         raise KeyError(f"Column {qc_col!r} not found; run gapfill_mds() first")
 
-    keys = [c for c in (group_col, year_col) if c is not None and c in temp.columns]
+    keys = [c for c in _as_list(group_col) + _as_list(year_col) if c in temp.columns]
     if dn_col in temp.columns:
         temp = temp.copy()
-        temp['period'] = np.where(temp[dn_col] == 1, 'day', 'night')
-        keys = keys + ['period']
+        temp['day_or_night'] = np.where(temp[dn_col] == 1, 'day', 'night')
+        keys = keys + ['day_or_night']
 
     rows = []
-    for label, group in temp.groupby(keys, observed=True, dropna=False):
+    grouped = temp.groupby(keys, observed=True, dropna=False) if keys else [((), temp)]
+    for label, group in grouped:
         label = label if isinstance(label, tuple) else (label,)
         n = len(group)
         row = dict(zip(keys, label))

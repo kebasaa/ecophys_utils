@@ -142,7 +142,7 @@ def mdc_annual_sum(temp: pd.DataFrame, flux_col: str = 'nee_f', timestamp_col: s
     group_cols : sequence of str, optional
         Extra grouping columns, applied on top of the time bins. Default is () (one
         composite year from the whole record). Use ('year',) for a per-calendar-year
-        budget, or e.g. ('fire',) to keep periods before and after a disturbance apart.
+        budget, or e.g. ('site',) or ('site', 'period') to keep blocks apart.
         Every group gets the full set of time bins, so a group covering only part of the
         year has empty bins and therefore a NaN total.
     time_bin : {'month', 'halfmonth'}, optional

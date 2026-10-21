@@ -269,7 +269,7 @@ Functions for partitioning net ecosystem exchange into gross primary production 
 - `partitioning_reichstein_wrapper(temp, timestamp_col='timestamp', dn_col='day_night', Tair_col='Tair', nee_col='nee_f', grouping_col='year')`: Complete partitioning workflow using Reichstein method.
 
 #### Daytime Partitioning
-- `partition_lasslop(temp, nee_col='nee_f', par_col=None, sw_col='SW_IN_1_1_1', sw_to_par=2.1, tair_col='Tair', vpd_col='VPD', E0_col='E0', dn_col='day_night', group_col=None, window_days=4, step_days=2, min_points=30, vpd0=None, vpd_unit='hPa', suffix='_lasslop')`: Daytime partitioning of Lasslop et al. (2010), fitted in moving windows. Adds `reco`, `gpp` and `nee` columns with the suffix, and returns the per-window fit table. Intended as a cross-check on the night-time method.
+- `partition_lasslop(temp, nee_col='nee_f', par_col=None, sw_col='SW_IN_1_1_1', sw_to_par=2.1, tair_col='Tair', vpd_col='VPD', E0_col='E0', dn_col='day_night', group_col=None, window_days=4, step_days=2, min_points=30, vpd0=None, vpd_unit='hPa', suffix='_lasslop')`: Daytime partitioning of Lasslop et al. (2010), fitted in moving windows. Adds `reco`, `gpp` and `nee` columns with the suffix, and returns the per-window fit table. `group_col` takes one column or a list; windows never span a group. Intended as a cross-check on the night-time method.
 - `lasslop_nee(drivers, alpha, beta0, k, gamma, E0, vpd0=10.0)`: Lasslop light-response + Lloyd-Taylor NEE model.
 - `fit_lasslop_window(par, T, vpd, nee, E0, vpd0=10.0, min_points=30)`: Fit that model to one window of daytime data.
 
@@ -282,7 +282,7 @@ Annual carbon sums that never treat gaps as zero.
 - `annual_carbon_budget(temp, method='mdc', nee_col='nee_f', reco_col='reco_umol_m2_s1', year_col='year', dn_col='day_night', ...)`: Per-year NEE, Reco, GPP and NEP from MDC bins (`method='mdc'`) or from a gap-filled series (`method='mds'`), with coverage statistics.
 
 ### gapfilling
-- `gapfill_mds(temp, flux_col='nee_f', sw_col='SW_IN_1_1_1', tair_col='Tair', vpd_col='VPD', group_col=None, vpd_unit='hPa', ...)`: Marginal Distribution Sampling gap-filling (Reichstein et al. 2005). Adds the filled series plus quality flag, uncertainty and window columns.
+- `gapfill_mds(temp, flux_col='nee_f', sw_col='SW_IN_1_1_1', tair_col='Tair', vpd_col='VPD', group_col=None, vpd_unit='hPa', ...)`: Marginal Distribution Sampling gap-filling (Reichstein et al. 2005). Adds the filled series plus quality flag, uncertainty and window columns. `group_col` takes one column or a list (e.g. `['site', 'period']`); look-up windows never cross a group.
 - `gapfill_report(temp, flux_col='nee_f', suffix='_fill', group_col=None, dn_col='day_night', year_col='year')`: Measured and filled fractions by quality class, split by day and night.
 
 ### radiation
