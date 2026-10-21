@@ -107,6 +107,11 @@ clean_data = eco.flagged_data_removal_ep(data, 'nee', flags > 1)
 
 # Remove outliers
 clean_data = eco.remove_outliers(clean_data, 'nee', stdevs=3)
+
+# Remove the night-time offset of a shortwave sensor (night detected with astral).
+# Timestamps in local standard time (no daylight saving) by default; use time_ref='local' or 'utc' otherwise
+clean_data['day_night'] = eco.is_day(clean_data['timestamp'], lat, lon, 'Europe/Zurich')
+clean_data['SW_IN_corr'] = eco.correct_nighttime_swr_offset(clean_data, col='SW_IN_1_1_1')
 ```
 
 ### Flux Calculations
@@ -151,6 +156,7 @@ Data cleaning and quality control functions.
 - `remove_highly_variable_days(temp, col='co2_flux', year=None, threshold=75, silent=False)`: Remove days with excessive variability in specified column.
 - `remove_outliers(temp, col='co2_flux', stdevs=2, silent=False)`: Remove outliers based on standard deviation threshold.
 - `remove_outliers_by_regression(df, x_col, y_col, n_std=2, ddof=0)`: Remove outliers based on regression residual analysis.
+- `correct_nighttime_swr_offset(temp, col='SW_IN_1_1_1', timestamp_col='timestamp', dn_col='day_night', lat=None, lon=None, tz=None, time_ref='standard', min_night_records=6, return_offset=False, silent=False)`: Subtract the median night-time value of each calendar day from that whole day, then set night-time values to 0. Night comes from `dn_col`, or from astral via `lat`, `lon`, `tz` and `time_ref`.
 
 ### dataloading
 Functions for loading data from various instruments and formats.
@@ -240,7 +246,9 @@ Utility functions for data manipulation and processing (consolidated in data_pro
 Functions for partitioning net ecosystem exchange into gross primary production and respiration.
 
 #### Day/Night Detection
-- `is_day(timestamp_series, lat, lon, tz, numeric=True)`: Determine day/night periods using astronomical calculations.
+- `is_day(timestamp_series, lat, lon, tz=None, numeric=True, time_ref='standard')`: Determine day/night periods using astronomical calculations. `time_ref` says how the timestamps were recorded: `'standard'` (local standard time without daylight saving, default), `'local'` (with daylight saving) or `'utc'`.
+- `localize_timestamps(timestamps, tz=None, time_ref='standard')`: Attach a timezone to naive timestamps according to `time_ref`.
+- `to_standard_time(timestamps, tz, from_ref='local', ambiguous='infer')`: Convert timestamps recorded in local time with daylight saving (`from_ref='local'`) or in UTC (`from_ref='utc'`) to local standard time. The repeated hour when clocks go back is resolved from the record order.
 
 #### Respiration Estimation
 - `respiration_from_nighttime_simple_interpolated(temp, dn_col='dn', nee_col='nee')`: Estimate respiration using nighttime interpolation.
