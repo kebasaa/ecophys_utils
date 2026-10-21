@@ -260,7 +260,7 @@ Functions for partitioning net ecosystem exchange into gross primary production 
 
 #### Core Partitioning
 - `calculate_nee(co2_flux, storage_flux)`: Calculate net ecosystem exchange from CO2 flux and storage.
-- `calculate_gpp(nee, reco)`: Calculate gross primary production from NEE and respiration.
+- `calculate_gpp(nee, reco, day_night=None, clip_negative=True)`: Calculate gross primary production from NEE and respiration. Pass `day_night` to force GPP to zero at night; without it, clipping night-time noise biases GPP upwards.
 - `calculate_uStar_threshold_reichstein(df, Tair_col='TA_1_1_1', dn_col='day_night', uStar_col='u*', nee_col='nee', filter_threshold=0.99, use_night_only=True, min_uStar_threshold=0.01, na_uStar_threshold=0.4, threshold_if_none_found=False)`: Calculate u* threshold using Reichstein method.
 - `create_seasonal_uStar_threshold_list(df, groupby=['year', 'season'])`: Create seasonal u* thresholds.
 - `calculate_overall_uStar_threshold(thresholds_df, missing_fraction=1, use_mean=True)`: Calculate overall u* threshold from seasonal values.
@@ -268,13 +268,40 @@ Functions for partitioning net ecosystem exchange into gross primary production 
 - `remove_nas(temp, cols)`: Remove rows with NaN values in specified columns.
 - `partitioning_reichstein_wrapper(temp, timestamp_col='timestamp', dn_col='day_night', Tair_col='Tair', nee_col='nee_f', grouping_col='year')`: Complete partitioning workflow using Reichstein method.
 
+#### Daytime Partitioning
+- `partition_lasslop(temp, nee_col='nee_f', par_col=None, sw_col='SW_IN_1_1_1', sw_to_par=2.1, tair_col='Tair', vpd_col='VPD', E0_col='E0', dn_col='day_night', group_col=None, window_days=4, step_days=2, min_points=30, vpd0=None, vpd_unit='hPa', suffix='_lasslop')`: Daytime partitioning of Lasslop et al. (2010), fitted in moving windows. Adds `reco`, `gpp` and `nee` columns with the suffix, and returns the per-window fit table. Intended as a cross-check on the night-time method.
+- `lasslop_nee(drivers, alpha, beta0, k, gamma, E0, vpd0=10.0)`: Lasslop light-response + Lloyd-Taylor NEE model.
+- `fit_lasslop_window(par, T, vpd, nee, E0, vpd0=10.0, min_points=30)`: Fit that model to one window of daytime data.
+
+### carbon_budget
+Annual carbon sums that never treat gaps as zero.
+
+- `mdc_annual_sum(temp, flux_col='nee_f', group_cols=(), time_bin='month', min_n=5, period_mins=30, reference_year=2021, dn_col='day_night', fallback_reco_col=None)`: Mean diurnal course binning (Falge et al. 2001): one bin per time of year x time of day, each converted to g C m-2.
+- `mdc_total(bins, group_cols=())`: Annual total per group. NaN if any bin is empty; the sum of the non-empty bins is in `carbon_available.g_m2`.
+- `mdc_cumulative(bins, group_cols=(), time_bin='month', reference_year=2021, period_mins=30)`: Cumulative within-year carbon series for plotting.
+- `annual_carbon_budget(temp, method='mdc', nee_col='nee_f', reco_col='reco_umol_m2_s1', year_col='year', dn_col='day_night', ...)`: Per-year NEE, Reco, GPP and NEP from MDC bins (`method='mdc'`) or from a gap-filled series (`method='mds'`), with coverage statistics.
+
+### gapfilling
+- `gapfill_mds(temp, flux_col='nee_f', sw_col='SW_IN_1_1_1', tair_col='Tair', vpd_col='VPD', group_col=None, vpd_unit='hPa', ...)`: Marginal Distribution Sampling gap-filling (Reichstein et al. 2005). Adds the filled series plus quality flag, uncertainty and window columns.
+- `gapfill_report(temp, flux_col='nee_f', suffix='_fill', group_col=None, dn_col='day_night', year_col='year')`: Measured and filled fractions by quality class, split by day and night.
+
+### radiation
+Solar geometry and shortwave reconstruction.
+
+- `potential_radiation(timestamps, lat, lon, tz=None, transmissivity=0.75, offset_mins=0.0, time_ref='standard')`: Extraterrestrial and clear-sky shortwave, solar zenith and azimuth.
+- `normalized_daylight_hour(temp, timestamp_col='timestamp', dn_col='day_night')`: Position within the daylight period, 0 at sunrise to 1 at sunset.
+- `fit_horizon_profile(temp, rad_col='SW_IN_1_1_1', ...)`: Estimate the terrain horizon elevation by solar azimuth.
+- `terrain_clearsky(temp, horizon, ...)`: Clear-sky shortwave with the direct beam removed where terrain blocks the sun.
+- `reconstruct_swin(temp, sw_col='SW_IN_1_1_1', rn_col='NETRAD_1_1_1', method='clearness', ...)`: Reconstruct incoming shortwave from net radiation.
+- `evaluate_swin(temp, sw_col='SW_IN_1_1_1', out_col='swin_reconstructed', dn_col='day_night', by=None)`: Compare reconstructed against measured shortwave.
+
 ### energy_budget
 Energy budget analysis and gap-filling.
 
 - `is_leap_year(year)`: Check if year is a leap year.
 - `total_annual_periods(year, averaging_period_mins=30)`: Calculate total periods in a year.
-- `annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_col='Rn_filled', G_col='G_filled', period_mins=30)`: Calculate annual energy budget statistics.
-- `turbulent_energy_fluxes_gapfilling(temp, H_col='H', H_strg_col='H_strg', LE_col='LE', LE_strg_col='LE_strg', Rn_col='Rn', G_col='G', interp=True, interp_hours=2)`: Gap-fill turbulent energy fluxes.
+- `annual_energy_budget(temp, H_col='H_tot_filled', LE_col='LE_tot_filled', Rn_col='Rn_filled', G_col='G_filled', period_mins=30, dn_col='day_night')`: Calculate annual energy budget statistics, including the daylight-only `EBR_day` and the 24 h `EBR`.
+- `turbulent_energy_fluxes_gapfilling(temp, H_col='H', H_strg_col='H_strg', LE_col='LE', LE_strg_col='LE_strg', Rn_col='Rn', G_col='G', interp=True, interp_hours=2, dn_col=None, ebr_min_rn=50.0)`: Gap-fill turbulent energy fluxes. The half-hourly `EBR` is only computed where Rn - G exceeds `ebr_min_rn` (and in daylight when `dn_col` is given).
 - `calculate_bowen_ratio(H, LE)`: Calculate Bowen ratio (H/LE).
 - `calculate_albedo(SW_in, SW_out)`: Calculate surface albedo.
 - `calculate_longwave_radiation(T_surf, emissivity=0.97, LW_in=None)`: Calculate longwave radiation components.
