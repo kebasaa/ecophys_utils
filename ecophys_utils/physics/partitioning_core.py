@@ -246,6 +246,59 @@ def create_seasonal_uStar_threshold_list(df: pd.DataFrame, groupby: List[str] = 
 
     return(thresholds_df)
 
+def bootstrap_uStar_threshold(df: pd.DataFrame, groupby: List[str] = ['year', 'season'], n_boot: int = 200, percentiles: List[float] = [5, 50, 95], seed: int = 42, Tair_col: str = 'TA_1_1_1', dn_col: str = 'day_night', uStar_col: str = 'u*', nee_col: str = 'nee') -> pd.DataFrame:
+    """
+    Bootstrap the seasonal u* threshold (Papale et al. 2006).
+
+    The night-time records of each group are resampled with replacement and the threshold
+    is re-estimated with the same settings as create_seasonal_uStar_threshold_list().
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing data.
+    groupby : list of str, optional
+        Columns to group by. Default is ['year', 'season'].
+    n_boot : int, optional
+        Number of bootstrap samples per group. Default is 200.
+    percentiles : list of float, optional
+        Percentiles of the bootstrap distribution to report. Default is [5, 50, 95].
+    seed : int, optional
+        Seed of the random number generator. Default is 42.
+    Tair_col, dn_col, uStar_col, nee_col : str, optional
+        Column names, as in create_seasonal_uStar_threshold_list().
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per group with columns 'uStar_p<percentile>' and 'n_valid_boot', the
+        number of bootstrap samples that returned a threshold.
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    for key, group in df.groupby(groupby):
+        night = group.loc[group[dn_col] == 0, [Tair_col, dn_col, uStar_col, nee_col]].dropna()
+        values = []
+        for _ in range(n_boot if len(night) > 0 else 0):
+            sample = night.iloc[rng.integers(0, len(night), len(night))]
+            values.append(calculate_uStar_threshold_reichstein(sample,
+                                         Tair_col=Tair_col,
+                                         dn_col=dn_col,
+                                         uStar_col=uStar_col,
+                                         nee_col=nee_col,
+                                         filter_threshold=0.99,
+                                         use_night_only=True,
+                                         min_uStar_threshold=0.01,
+                                         na_uStar_threshold=0.4,
+                                         threshold_if_none_found=False))
+        values = np.array(values, dtype=float)
+        row = dict(zip(groupby, key if isinstance(key, tuple) else (key,)))
+        for p in percentiles:
+            row['uStar_p%g' % p] = np.nanpercentile(values, p) if np.isfinite(values).any() else np.nan
+        row['n_valid_boot'] = int(np.isfinite(values).sum())
+        rows.append(row)
+    return(pd.DataFrame(rows))
+
 def calculate_overall_uStar_threshold(thresholds_df: pd.DataFrame, missing_fraction: float = 1.0, use_mean: bool = True) -> float:
     """
     Calculate overall u* threshold from seasonal thresholds.
