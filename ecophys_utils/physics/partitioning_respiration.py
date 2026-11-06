@@ -184,6 +184,126 @@ def fit_E0(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: str = 'TA_1_
     R_ref_fit, E0_fit = popt
     return R_ref_fit, E0_fit
 
+def _fit_lloyd_taylor_trimmed(T: np.ndarray, Reco: np.ndarray, trim_percentile: float = 5.0,
+                              initial_guess: Tuple[float, float] = (2.0, 200.0)) -> Tuple[float, float]:
+    """
+    Fit R_ref and E0, drop the residual tails and refit (REddyProc fOptimSingleE0).
+
+    Returns the E0 of the trimmed fit and its standard error, or (nan, nan) if either fit
+    fails. The trimming removes the extreme residuals, which in night-time NEE are mostly
+    spikes from advection or poorly mixed conditions that survived the u* filter.
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            popt, _ = curve_fit(lloyd_taylor, T, Reco, p0=initial_guess, maxfev=2000)
+            resid = Reco - lloyd_taylor(T, *popt)
+            lo, hi = np.percentile(resid, [trim_percentile, 100 - trim_percentile])
+            keep = (resid >= lo) & (resid <= hi)
+            popt, pcov = curve_fit(lloyd_taylor, T[keep], Reco[keep], p0=initial_guess, maxfev=2000)
+    except (RuntimeError, ValueError):
+        return np.nan, np.nan
+    E0_sd = np.sqrt(pcov[1, 1]) if np.isfinite(pcov[1, 1]) else np.nan
+    return popt[1], E0_sd
+
+def fit_E0_short_term(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: str = 'TA_1_1_1', nee_col: str = 'nee_f', timestamp_col: str = 'timestamp', window_days: int = 15, shift_days: int = 5, min_points: int = 7, min_T_range: float = 5.0, trim_percentile: float = 5.0, n_best: int = 3, E0_bounds: Tuple[float, float] = (30.0, 350.0)) -> Tuple[float, pd.DataFrame]:
+    """
+    Estimate E0 from short-term windows of night-time data (Reichstein et al. 2005).
+
+    Fits the Lloyd-Taylor model (R_ref and E0) in short windows, keeps the plausible E0
+    estimates and averages the `n_best` with the smallest standard error into one E0 for
+    the whole of `temp`. Follows REddyProc (fRegrE0fromShortTerm).
+
+    Parameters
+    ----------
+    temp : pandas.DataFrame
+        Data of one period (e.g. one year), containing temperature and NEE.
+    dn_col : str, optional
+        Column name for day/night indicator. Default is 'day_night'.
+    Tair_col : str, optional
+        Column name for air temperature (degC). Default is 'TA_1_1_1'.
+    nee_col : str, optional
+        Column name for u*-filtered, not gap-filled NEE. Default is 'nee_f'.
+    timestamp_col : str, optional
+        Column name for timestamps. Default is 'timestamp'.
+    window_days : int, optional
+        Window length in days, centred on the window day. Default is 15, as in the paper.
+    shift_days : int, optional
+        Shift between windows in days. Default is 5.
+    min_points : int, optional
+        Min. number of valid night-time records per window. Default is 7 (REddyProc: more
+        than 6).
+    min_T_range : float, optional
+        Min. temperature range within a window (K). Default is 5.0. Without it E0 is not
+        identifiable; REddyProc suggests 3 when too few windows qualify.
+    trim_percentile : float, optional
+        Residuals below this and above (100 - this) percentile are dropped before the
+        final fit of each window. Default is 5.0.
+    n_best : int, optional
+        Number of E0 estimates with the smallest standard error to average. Default is 3.
+    E0_bounds : tuple of float, optional
+        Plausible range of E0 (K). An estimate is kept only if E0 +- its standard error
+        lies inside. Default (30, 350), REddyProc's limits for air temperature; the paper
+        uses (30, 450), and REddyProc (30, 550) for soil temperature.
+
+    Returns
+    -------
+    (float, pandas.DataFrame)
+        The E0 (K), NaN with a warning if fewer than `n_best` windows give a valid
+        estimate; and the per-window table with columns 'window_mid', 'n', 'T_range',
+        'E0', 'E0_sd', 'valid' and 'used'.
+
+    See Also
+    --------
+    fit_E0 : One fit over all night-time data, without the short-term windows.
+    estimate_R_ref_moving_window_overlapping : Estimates R_ref with this E0 fixed.
+
+    Notes
+    -----
+    WHY SHORT WINDOWS. Over a year, R_ref follows the seasonal cycle of temperature
+    through phenology, soil moisture and substrate supply. A single fit over a year of
+    night-time data attributes that seasonal covariation to temperature and inflates E0.
+    Within a two-week window R_ref is roughly constant, so the fitted E0 reflects the
+    short-term temperature response only. An inflated E0 also overestimates daytime Reco
+    (and thereby GPP), because daytime is warmer than night.
+    """
+    temp = temp[[timestamp_col, dn_col, Tair_col, nee_col]].copy()
+    temp[timestamp_col] = pd.to_datetime(temp[timestamp_col])
+    # Day counter from the first record, as REddyProc counts days from the start of the data
+    day = ((temp[timestamp_col] - temp[timestamp_col].min()) // pd.Timedelta(days=1)).to_numpy()
+    night = (temp[dn_col] == 0).to_numpy() & temp[[Tair_col, nee_col]].notna().all(axis=1).to_numpy()
+    T_all = temp[Tair_col].to_numpy(dtype=float)
+    nee_all = temp[nee_col].to_numpy(dtype=float)
+
+    half = window_days // 2
+    rows = []
+    if len(day) > 0:
+        # Window centres from the first full half-window onwards, as in REddyProc
+        for mid in range(half + 1, int(day.max()) + 1, shift_days):
+            sel = night & (day >= mid - half) & (day <= mid + half)
+            T, Reco = T_all[sel], nee_all[sel]
+            T_range = np.ptp(T) if len(T) > 0 else 0.0
+            if (len(T) < min_points) or (T_range < min_T_range):
+                continue
+            E0, E0_sd = _fit_lloyd_taylor_trimmed(T, Reco, trim_percentile=trim_percentile)
+            rows.append({'window_mid': temp[timestamp_col].min() + pd.Timedelta(days=mid + 0.5),
+                         'n': len(T), 'T_range': T_range, 'E0': E0, 'E0_sd': E0_sd})
+
+    win_df = pd.DataFrame(rows, columns=['window_mid', 'n', 'T_range', 'E0', 'E0_sd'])
+    # Keep an estimate only if its whole +- 1 SE band is plausible. The paper instead
+    # requires a relative standard error below 50 %; REddyProc uses this band.
+    win_df['valid'] = ((win_df['E0'] - win_df['E0_sd'] > E0_bounds[0])
+                       & (win_df['E0'] + win_df['E0_sd'] < E0_bounds[1]))
+    best = win_df.loc[win_df['valid']].nsmallest(n_best, 'E0_sd')
+    win_df['used'] = win_df.index.isin(best.index)
+
+    if len(best) < n_best:
+        warnings.warn(f'Only {len(best)} of {len(win_df)} windows gave a valid E0, fewer than '
+                      f'n_best={n_best}; returning NaN. Consider min_T_range=3.')
+        return np.nan, win_df
+    E0 = best['E0'].mean()
+    return E0, win_df
+
 def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: str = 'TA_1_1_1', nee_col: str = 'nee_f', timestamp_col: str = 'timestamp', E0_col: str = 'E0_fit', window_days: int = 15, shift_days: int = 5, min_points: int = 10) -> pd.DataFrame:
     """
     Estimate R_ref in overlapping moving windows of nighttime data.
@@ -247,9 +367,7 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
     current_start = start_time
     # guard against NaT
     if pd.isna(current_start) or pd.isna(end_time):
-        return {timestamp_col: pd.Timestamp(window_midpoint),
-                    'R_ref': np.nan,
-                    'E0': np.nan}
+        return pd.DataFrame(columns=[timestamp_col, 'R_ref', 'E0'])
     while current_start + window_size <= end_time:
         window_starts.append(current_start)
         current_start += shift_size

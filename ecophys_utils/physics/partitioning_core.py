@@ -5,7 +5,7 @@ import numpy as np
 from typing import Union, List, Optional
 import pandas as pd
 from scipy import stats
-from .partitioning_respiration import fit_E0, estimate_R_ref_moving_window_overlapping, interpolate_R_ref
+from .partitioning_respiration import fit_E0, fit_E0_short_term, estimate_R_ref_moving_window_overlapping, interpolate_R_ref
 from ..utils.data_processing import create_season_northern_hemisphere, create_season_southern_hemisphere
 
 def calculate_nee(co2_flux: Union[float, np.ndarray], storage_flux: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -385,7 +385,7 @@ def uStar_filtering_wrapper(temp: pd.DataFrame, timestamp_col: str = 'timestamp'
         print('Done applying u* filter...')
     return(temp)
     
-def partitioning_reichstein_wrapper(temp: pd.DataFrame, timestamp_col: str = 'timestamp', dn_col: str = 'day_night', Tair_col: str = 'Tair', nee_col: str = 'nee_f', grouping_col: str = 'year') -> pd.DataFrame:
+def partitioning_reichstein_wrapper(temp: pd.DataFrame, timestamp_col: str = 'timestamp', dn_col: str = 'day_night', Tair_col: str = 'Tair', nee_col: str = 'nee_f', grouping_col: str = 'year', E0_method: str = 'short_term', window_days: int = 15, shift_days: int = 5) -> pd.DataFrame:
     """
     Wrapper for Reichstein partitioning method.
 
@@ -400,38 +400,53 @@ def partitioning_reichstein_wrapper(temp: pd.DataFrame, timestamp_col: str = 'ti
     Tair_col : str, optional
         Column name for air temperature. Default is 'Tair'.
     nee_col : str, optional
-        Column name for NEE. Default is 'nee_f'.
+        Column name for u*-filtered NEE. Default is 'nee_f'.
     grouping_col : str, optional
-        Column to group by. Default is 'year'.
+        Column to group by; one E0 is estimated per group. Default is 'year'.
+    E0_method : {'short_term', 'annual'}, optional
+        'short_term' (default): E0 from short windows, as in Reichstein et al. (2005), see
+        fit_E0_short_term(). 'annual': one fit over all night-time data of the group, see
+        fit_E0(); this inflates E0 where R_ref follows the seasonal cycle of temperature.
+    window_days, shift_days : int, optional
+        Window length and shift (days) for R_ref. Default 15 and 5. REddyProc uses 7 and 4.
 
     Returns
     -------
     pandas.DataFrame
-        DataFrame with partitioning parameters.
+        DataFrame with the timestamp, 'E0' and the interpolated 'R_ref', sorted by time.
 
     See Also
     --------
-    fit_E0 : Fit E0 parameter.
+    fit_E0_short_term : Fit E0 in short-term windows.
+    fit_E0 : Fit E0 over all data.
     estimate_R_ref_moving_window_overlapping : Estimate R_ref.
     interpolate_R_ref : Interpolate R_ref values.
     calculate_uStar_threshold_reichstein : Calculate u* threshold.
     """
+    if E0_method not in ('short_term', 'annual'):
+        raise ValueError(f"E0_method must be 'short_term' or 'annual', got {E0_method!r}")
+    # interpolate_R_ref() returns its values in time order, so the data must be in time
+    # order for them to land on the right rows
+    temp = temp.sort_values(timestamp_col).reset_index(drop=True)
+
     # Step 1: Estimate E0 for each large (e.g. year) group
     # 1a) Define a wrapper function to use with .apply()
     def apply_fit_E0(group):
-        R_ref_initial, E0_fit = fit_E0(group, Tair_col=Tair_col)
-        n = len(group)
+        if E0_method == 'short_term':
+            E0_fit, _ = fit_E0_short_term(group, dn_col=dn_col, Tair_col=Tair_col,
+                                          nee_col=nee_col, timestamp_col=timestamp_col)
+        else:
+            _, E0_fit = fit_E0(group, dn_col=dn_col, Tair_col=Tair_col, nee_col=nee_col)
         return pd.Series({
-            'R_ref_initial': R_ref_initial,
-            'E0_fit': E0_fit,
-            'n_rows': n
+            'E0': E0_fit,
+            'n_rows': len(group)
         })
-    
+
     # 1b) Apply the function to each year group
     result_E0 = temp.groupby(grouping_col).apply(apply_fit_E0).reset_index()
 
-    # 1c) Merge back into temp
-    temp = temp.merge(result_E0[[grouping_col,'E0_fit']], on=grouping_col, how='outer')
+    # 1c) Merge back into temp, under the name that estimate_R_ref reads below
+    temp = temp.merge(result_E0[[grouping_col, 'E0']], on=grouping_col, how='left')
 
     # Step 2: Estimate R_ref for each smaller group in moving windows
     # 2a) Define the wrapper function
@@ -442,9 +457,10 @@ def partitioning_reichstein_wrapper(temp: pd.DataFrame, timestamp_col: str = 'ti
             dn_col=dn_col,
             Tair_col=Tair_col,
             nee_col=nee_col,
+            timestamp_col=timestamp_col,
             E0_col='E0',
-            window_days=15,
-            shift_days=5
+            window_days=window_days,
+            shift_days=shift_days
         )
         R_ref_df[grouping_col] = group.name
         return(R_ref_df)
@@ -453,15 +469,9 @@ def partitioning_reichstein_wrapper(temp: pd.DataFrame, timestamp_col: str = 'ti
     result_R_ref = temp.groupby(grouping_col).apply(apply_estimate_R_ref).reset_index(drop=True)
 
     # Step 3: Interpolate R_ref across the year (or other grouping variable)
-    # 3a) Define the wrapper function
-    def interpolate_group(group):
-        year = group.name
+    temp['R_ref'] = np.nan
+    for year, group in temp.groupby(grouping_col):
         R_ref_group = result_R_ref.loc[result_R_ref[grouping_col] == year]
-        interpolated_values = interpolate_R_ref(group, R_ref_group)
-        group = group.copy()
-        group['R_ref'] = interpolated_values
-        return(group)
-    # 3b) Group and apply the wrapper function
-    lloyd_taylor_params = temp.groupby(grouping_col).apply(interpolate_group).reset_index(drop=True)
+        temp.loc[group.index, 'R_ref'] = interpolate_R_ref(group, R_ref_group, timestamp_col=timestamp_col)
 
-    return(lloyd_taylor_params[[timestamp_col,'E0','R_ref']])
+    return(temp[[timestamp_col, 'E0', 'R_ref']])

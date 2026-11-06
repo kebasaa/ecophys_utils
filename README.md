@@ -5,7 +5,7 @@
 ![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)
 ![SciPy](https://img.shields.io/badge/SciPy-%230C55A5.svg?style=for-the-badge&logo=scipy&logoColor=%white)
 
-![Version](https://img.shields.io/badge/version-0.1-blue)
+![Version](https://img.shields.io/badge/version-0.5-blue)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 [![DOI](https://zenodo.org/badge/932117720.svg)](https://doi.org/10.5281/zenodo.20540557)
@@ -254,8 +254,9 @@ Functions for partitioning net ecosystem exchange into gross primary production 
 - `respiration_from_nighttime_simple_interpolated(temp, dn_col='dn', nee_col='nee')`: Estimate respiration using nighttime interpolation.
 - `respiration_from_nighttime_simple_blocks(temp, dn_col='dn', nee_col='nee')`: Estimate respiration using nighttime blocks.
 - `lloyd_taylor(T, R_ref, E0, T_ref=15.0, T0=-46.02)`: Lloyd-Taylor temperature response function for respiration.
-- `fit_E0(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f', initial_guess=(1.0, 300.0))`: Fit E0 parameter for Lloyd-Taylor model.
-- `estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f', window_days=7, step_days=1, min_points=10)`: Estimate reference respiration using moving window.
+- `fit_E0(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f', initial_guess=(1.0, 300.0))`: Fit E0 and R_ref of the Lloyd-Taylor model over all night-time data. Inflates E0 where R_ref follows the seasonal cycle of temperature; prefer `fit_E0_short_term`.
+- `fit_E0_short_term(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f', timestamp_col='timestamp', window_days=15, shift_days=5, min_points=7, min_T_range=5.0, trim_percentile=5.0, n_best=3, E0_bounds=(30.0, 350.0))`: E0 from short-term windows of night-time data (Reichstein et al. 2005, as in REddyProc): Lloyd-Taylor fits in 15-day windows every 5 days with a temperature range of at least 5 K, residual tails trimmed, and the mean of the 3 plausible estimates with the smallest standard error. Returns E0 and the per-window table.
+- `estimate_R_ref_moving_window_overlapping(temp, dn_col='day_night', Tair_col='TA_1_1_1', nee_col='nee_f', timestamp_col='timestamp', E0_col='E0_fit', window_days=15, shift_days=5, min_points=10)`: Estimate reference respiration with E0 fixed, in overlapping moving windows of night-time data.
 - `interpolate_R_ref(full_df, R_ref_df, timestamp_col='timestamp')`: Interpolate reference respiration values.
 
 #### Core Partitioning
@@ -266,12 +267,28 @@ Functions for partitioning net ecosystem exchange into gross primary production 
 - `calculate_overall_uStar_threshold(thresholds_df, missing_fraction=1, use_mean=True)`: Calculate overall u* threshold from seasonal values.
 - `uStar_filtering_wrapper(temp, timestamp_col='timestamp', hemisphere='north', apply_to_cols=['nee','co2_flux','co2_strg','h2o_flux','H','LE'], silent=False)`: Apply u* filtering to data.
 - `remove_nas(temp, cols)`: Remove rows with NaN values in specified columns.
-- `partitioning_reichstein_wrapper(temp, timestamp_col='timestamp', dn_col='day_night', Tair_col='Tair', nee_col='nee_f', grouping_col='year')`: Complete partitioning workflow using Reichstein method.
+- `partitioning_reichstein_wrapper(temp, timestamp_col='timestamp', dn_col='day_night', Tair_col='Tair', nee_col='nee_f', grouping_col='year', E0_method='short_term', window_days=15, shift_days=5)`: Complete partitioning workflow using Reichstein method: one E0 per group (short-term windows by default, `E0_method='annual'` for a single fit), then R_ref in moving windows, interpolated. Returns the timestamp, `E0` and `R_ref`.
 
 #### Daytime Partitioning
 - `partition_lasslop(temp, nee_col='nee_f', par_col=None, sw_col='SW_IN_1_1_1', sw_to_par=2.1, tair_col='Tair', vpd_col='VPD', E0_col='E0', dn_col='day_night', group_col=None, window_days=4, step_days=2, min_points=30, vpd0=None, vpd_unit='hPa', suffix='_lasslop')`: Daytime partitioning of Lasslop et al. (2010), fitted in moving windows. Adds `reco`, `gpp` and `nee` columns with the suffix, and returns the per-window fit table. `group_col` takes one column or a list; windows never span a group. Intended as a cross-check on the night-time method.
 - `lasslop_nee(drivers, alpha, beta0, k, gamma, E0, vpd0=10.0)`: Lasslop light-response + Lloyd-Taylor NEE model.
 - `fit_lasslop_window(par, T, vpd, nee, E0, vpd0=10.0, min_points=30)`: Fit that model to one window of daytime data.
+
+#### Daytime Respiration Inhibition
+Correction of the night-time partitioning for the light inhibition of daytime respiration (Kok effect), following Keenan et al. (2019) and their modified night-time method in REddyProc. Daytime reference respiration (RrefD) is the respiration intercept of the Lasslop light-response fit, with the night-time E0 held fixed; daytime Reco is then scaled by RrefD / RrefN, night-time Reco is unchanged, and GPP = Reco - NEE.
+- `estimate_R_ref_day(temp, nee_col='nee_f', par_col=None, sw_col='SW_IN_1_1_1', sw_to_par=2.1, tair_col='Tair', vpd_col='VPD', E0_col='E0', R_ref_night_col='R_ref', dn_col='day_night', timestamp_col='timestamp', group_col=None, window_days=4, step_days=2, min_points=10, vpd0=None, vpd_unit='hPa', out_col='R_ref_day')`: Daytime R_ref in 4-day windows every 2 days, interpolated between window centres. Returns the frame with `out_col` added and the per-window table, including the inhibition and the filters of Keenan et al. `E0_col` must be the E0 that produced the night-time R_ref.
+- `apply_respiration_inhibition(temp, reco_col, nee_col, R_ref_night_col='R_ref', R_ref_day_col='R_ref_day', dn_col='day_night', clip_negative=True, suffix='_inhib')`: Adds `reco_inhib`, `gpp_inhib` and `inhibition_inhib`. Works on a gap-filled Reco column.
+- `calculate_respiration_inhibition(R_ref_night, R_ref_day)`: Inhibition I = (RrefN - RrefD) / RrefN, as a fraction.
+- `summarise_inhibition(win_df, by_group=True)`: Monthly median inhibition of the valid windows, and its mean per calendar month over years.
+
+```python
+# After the night-time partitioning, with its 'E0' and 'R_ref' columns and Reco in 'reco'
+data, windows = eco.estimate_R_ref_day(data, nee_col='nee_f', E0_col='E0', R_ref_night_col='R_ref',
+                                       group_col='year')
+data = eco.apply_respiration_inhibition(data, reco_col='reco', nee_col='nee_filled')
+monthly, climatology = eco.summarise_inhibition(windows)
+budget = eco.annual_carbon_budget(data, method='mds', reco_col='reco_inhib', ...)
+```
 
 ### carbon_budget
 Annual carbon sums that never treat gaps as zero.

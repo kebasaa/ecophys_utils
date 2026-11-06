@@ -5,6 +5,7 @@ from .partitioning_day_night import *
 from .partitioning_respiration import *
 from .partitioning_daytime import *
 from .partitioning_core import *
+from .partitioning_inhibition import *
 from .energy_budget import *
 from .radiation import *
 from .carbon_budget import *
