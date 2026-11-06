@@ -1,7 +1,7 @@
 # Partitioning: Respiration calculation functions
 #---------------------------------
 import numpy as np
-from typing import Union, Tuple
+from typing import Optional, Union, Tuple
 import pandas as pd
 from scipy.optimize import curve_fit
 import warnings
@@ -304,7 +304,7 @@ def fit_E0_short_term(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: s
     E0 = best['E0'].mean()
     return E0, win_df
 
-def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: str = 'TA_1_1_1', nee_col: str = 'nee_f', timestamp_col: str = 'timestamp', E0_col: str = 'E0_fit', window_days: int = 15, shift_days: int = 5, min_points: int = 10) -> pd.DataFrame:
+def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = 'day_night', Tair_col: str = 'TA_1_1_1', nee_col: str = 'nee_f', timestamp_col: str = 'timestamp', E0_col: str = 'E0_fit', window_days: int = 15, shift_days: int = 5, min_points: int = 10, min_T_range: Optional[float] = None) -> pd.DataFrame:
     """
     Estimate R_ref in overlapping moving windows of nighttime data.
 
@@ -331,11 +331,17 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
         Number of days to shift windows. Default is 5.
     min_points : int, optional
         Min. number of valid data points. Default is 10
+    min_T_range : float or None, optional
+        Min. temperature range within a window (K). Default is None, no requirement, as in
+        REddyProc: with E0 fixed, R_ref is a one-parameter linear fit and needs no
+        temperature range. Requiring one only discards windows with steady temperatures,
+        across which R_ref is then interpolated.
 
     Returns
     -------
     pandas.DataFrame
-        DataFrame with window midpoints and fitted R_ref values.
+        DataFrame with window midpoints and fitted R_ref values. Negative R_ref, which
+        has no physical meaning, is returned as NaN, as in REddyProc.
 
     See Also
     --------
@@ -383,8 +389,9 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
         # Calculate the midpoint of the window.
         window_midpoint = window_start + window_size / 2
         
-        # Require a minimum temperature range and number of data points.
-        if (len(window_data) < min_points) or ((window_data[Tair_col].max() - window_data[Tair_col].min()) < 5):
+        # Require a minimum number of data points and, optionally, a temperature range.
+        T_range_too_small = (min_T_range is not None) and             ((window_data[Tair_col].max() - window_data[Tair_col].min()) < min_T_range)
+        if (len(window_data) < min_points) or T_range_too_small:
             return {timestamp_col: pd.Timestamp(window_midpoint),
                     'R_ref': np.nan,
                     'E0': np.nan}
@@ -409,6 +416,10 @@ def estimate_R_ref_moving_window_overlapping(temp: pd.DataFrame, dn_col: str = '
         try:
             popt, _ = curve_fit(lambda T, R: lloyd_taylor_fixed(T, R, E0_fixed), T_window, Reco_window, p0=[1.0])
             R_ref_window = popt[0]
+            # Negative respiration is not physical; drop the window and let
+            # interpolate_R_ref() bridge it from its neighbours, as REddyProc does
+            if R_ref_window < 0:
+                R_ref_window = np.nan
         except RuntimeError:
             # leave R_ref_window as NaN on fit failure
             R_ref_window = np.nan

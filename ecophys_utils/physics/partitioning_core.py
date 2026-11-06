@@ -1,6 +1,7 @@
 # Partitioning: Core partitioning functions
 #---------------------------------
 import os
+import warnings
 import numpy as np
 from typing import Union, List, Optional
 import pandas as pd
@@ -84,14 +85,44 @@ def calculate_gpp(nee: Union[float, np.ndarray], reco: Union[float, np.ndarray],
         gpp = np.where(gpp < 0, 0, gpp)
     return(gpp)
 
-def calculate_uStar_threshold_reichstein(df: pd.DataFrame, Tair_col: str = 'TA_1_1_1', dn_col: str = 'day_night', uStar_col: str = 'u*', nee_col: str = 'nee', filter_threshold: float = 0.99, use_night_only: bool = True, min_uStar_threshold: float = 0.01, na_uStar_threshold: float = 0.4, threshold_if_none_found: bool = False) -> float:
+# Rule sets for the u* threshold detection. Exposed as a module constant so the settings
+# are auditable and overridable rather than buried in the function body.
+#   'reichstein': as published in Reichstein et al. (2005): 6 temperature classes, a u*
+#                 class is the threshold when its NEE reaches 99 % of the mean NEE of all
+#                 higher u* classes, correlation limit 0.4.
+#   'reddyproc':  as in REddyProc (usControlUstarEst, usControlUstarSubsetting), the
+#                 reference implementation used for FLUXNET: 7 temperature classes, a u*
+#                 class and the next one must both reach 95 % of the mean NEE of the
+#                 following 10 classes, at least 3 classes must follow, correlation limit
+#                 0.5, temperature classes whose lowest u* class already averages more
+#                 than 0.2 are skipped, and the threshold must be found in at least 20 % of
+#                 the temperature classes.
+USTAR_RULES = {
+    'reichstein': {'filter_threshold': 0.99, 'n_Tair_classes': 6, 'n_plateau_bins': None,
+                   'n_consecutive_bins': 1, 'min_plateau_bins': 1, 'corr_threshold': 0.4,
+                   'first_uStar_bin_max': None, 'min_valid_Tair_class_fraction': 0.0},
+    'reddyproc':  {'filter_threshold': 0.95, 'n_Tair_classes': 7, 'n_plateau_bins': 10,
+                   'n_consecutive_bins': 2, 'min_plateau_bins': 3, 'corr_threshold': 0.5,
+                   'first_uStar_bin_max': 0.2, 'min_valid_Tair_class_fraction': 0.2},
+}
+
+def calculate_uStar_threshold_reichstein(df: pd.DataFrame, Tair_col: str = 'TA_1_1_1', dn_col: str = 'day_night', uStar_col: str = 'u*', nee_col: str = 'nee', rules: str = 'reichstein', filter_threshold: Optional[float] = None, use_night_only: bool = True, min_uStar_threshold: float = 0.01, na_uStar_threshold: float = 0.4, threshold_if_none_found: bool = False, n_Tair_classes: Optional[int] = None, n_uStar_classes: int = 20, n_plateau_bins: Optional[int] = None, n_consecutive_bins: Optional[int] = None, min_plateau_bins: Optional[int] = None, corr_threshold: Optional[float] = None, first_uStar_bin_max: Optional[float] = None, min_valid_Tair_class_fraction: Optional[float] = None, min_records: Optional[int] = None, min_records_per_Tair_class: Optional[int] = None) -> float:
     """
     Calculate u* threshold using Reichstein et al. (2005) method.
+
+    Night-time data are split into temperature classes, each class into u* classes of
+    equal size. In every temperature class the threshold is the mean u* of the first u*
+    class whose NEE reaches `filter_threshold` of the mean NEE of the u* classes above it.
+    The threshold of the data set is the median across temperature classes.
+
+    The settings come from the rule set `rules` (see USTAR_RULES); any of them given
+    explicitly overrides the rule set. The 'reichstein' rules (default) are those of the
+    paper, the 'reddyproc' rules those of REddyProc.
 
     Parameters
     ----------
     df : pandas.DataFrame
-        DataFrame containing temperature, day/night, u*, and NEE data.
+        DataFrame containing temperature, day/night, u*, and NEE data, normally one season.
     Tair_col : str, optional
         Column name for air temperature. Default is 'TA_1_1_1'.
     dn_col : str, optional
@@ -100,16 +131,49 @@ def calculate_uStar_threshold_reichstein(df: pd.DataFrame, Tair_col: str = 'TA_1
         Column name for u*. Default is 'u*'.
     nee_col : str, optional
         Column name for NEE. Default is 'nee'.
-    filter_threshold : float, optional
-        Threshold percentage for NEE comparison. Default is 0.99.
+    rules : {'reichstein', 'reddyproc'}, optional
+        Rule set providing the defaults of the settings below. Default 'reichstein'.
+    filter_threshold : float or None, optional
+        Fraction of the mean NEE of the higher u* classes that a class must reach
+        ('reichstein': 0.99, 'reddyproc': 0.95).
     use_night_only : bool, optional
         Whether to use night-time data only. Default is True.
     min_uStar_threshold : float, optional
         Minimum u* threshold. Default is 0.01.
     na_uStar_threshold : float, optional
-        Threshold if none found. Default is 0.4.
+        Threshold used if none is found and `threshold_if_none_found` is True. Default 0.4.
     threshold_if_none_found : bool, optional
-        Whether to insert threshold if none found. Default is False.
+        Whether to insert `na_uStar_threshold` where no threshold is found. Default False.
+    n_Tair_classes : int or None, optional
+        Number of temperature classes ('reichstein': 6, 'reddyproc': 7).
+    n_uStar_classes : int, optional
+        Number of u* classes per temperature class. Default is 20.
+    n_plateau_bins : int or None, optional
+        Number of higher u* classes forming the plateau; None means all higher classes
+        ('reichstein': None, 'reddyproc': 10).
+    n_consecutive_bins : int or None, optional
+        Number of consecutive u* classes that must reach the plateau, the first of which
+        is the threshold ('reichstein': 1, 'reddyproc': 2).
+    min_plateau_bins : int or None, optional
+        Min. number of u* classes that must lie above the threshold class
+        ('reichstein': 1, 'reddyproc': 3).
+    corr_threshold : float or None, optional
+        Temperature classes in which |r(Tair, u*)| reaches this value give no threshold,
+        because NEE would then vary with temperature along u* ('reichstein': 0.4,
+        'reddyproc': 0.5).
+    first_uStar_bin_max : float or None, optional
+        Temperature classes whose lowest u* class already averages more than this give no
+        threshold, as the low-turbulence regime is not sampled. None disables the check
+        ('reichstein': None, 'reddyproc': 0.2).
+    min_valid_Tair_class_fraction : float or None, optional
+        Min. fraction of temperature classes that must give a threshold
+        ('reichstein': 0, 'reddyproc': 0.2).
+    min_records : int or None, optional
+        Min. number of valid records; fewer give NaN. Default None, no minimum
+        (REddyProc: 160 per season).
+    min_records_per_Tair_class : int or None, optional
+        Min. number of valid records per temperature class; fewer give NaN. Default None,
+        no minimum (REddyProc: 100).
 
     Returns
     -------
@@ -120,82 +184,104 @@ def calculate_uStar_threshold_reichstein(df: pd.DataFrame, Tair_col: str = 'TA_1
     --------
     uStar_filtering_wrapper : Apply u* filtering to data.
     """
-    # Exclude rows where Tair is NA.
-    mask = ~df[Tair_col].isna()
-    temp = df.loc[mask].copy()
+    if rules not in USTAR_RULES:
+        raise ValueError(f"rules must be one of {list(USTAR_RULES)}, got {rules!r}")
+    # Settings not given explicitly come from the rule set
+    preset = USTAR_RULES[rules]
+    if filter_threshold is None: filter_threshold = preset['filter_threshold']
+    if n_Tair_classes is None: n_Tair_classes = preset['n_Tair_classes']
+    if n_plateau_bins is None: n_plateau_bins = preset['n_plateau_bins']
+    if n_consecutive_bins is None: n_consecutive_bins = preset['n_consecutive_bins']
+    if min_plateau_bins is None: min_plateau_bins = preset['min_plateau_bins']
+    if corr_threshold is None: corr_threshold = preset['corr_threshold']
+    if first_uStar_bin_max is None: first_uStar_bin_max = preset['first_uStar_bin_max']
+    if min_valid_Tair_class_fraction is None: min_valid_Tair_class_fraction = preset['min_valid_Tair_class_fraction']
+    # Every consecutive class needs at least one class above it to compare against
+    min_plateau_bins = max(min_plateau_bins, n_consecutive_bins)
+
+    def none_found():
+        return na_uStar_threshold if threshold_if_none_found else np.nan
+
+    # Valid records: temperature, u* and NEE all present
+    temp = df.loc[df[[Tair_col, uStar_col, nee_col]].notna().all(axis=1)]
 
     # Optionally use only night-time data
     if use_night_only:
-        temp = temp.loc[temp[dn_col] == 0].copy()
-        
-    # If no data after filtering -> return according to threshold_if_none_found
+        temp = temp.loc[temp[dn_col] == 0]
+    temp = temp[[Tair_col, uStar_col, nee_col]].copy()
+
+    # If no or too few data after filtering -> return according to threshold_if_none_found
     if temp.shape[0] == 0:
-        return na_uStar_threshold if threshold_if_none_found else np.nan
+        return none_found()
+    if (min_records is not None) and (len(temp) < min_records):
+        return none_found()
+    if (min_records_per_Tair_class is not None) and (len(temp) / n_Tair_classes < min_records_per_Tair_class):
+        return none_found()
 
-    # Create 6 temperature classes based on quantiles.
-    temp['Tair_class'] = pd.qcut(temp[Tair_col], 6, labels=False)
+    # Create temperature classes of equal size (quantiles)
+    temp['Tair_class'] = pd.qcut(temp[Tair_col], n_Tair_classes, labels=False, duplicates='drop')
 
-    # Within each Tair class, create 20 uStar classes.
-    # We use groupby on Tair_class together with a lambda to avoid an explicit loop.
-    temp['uStar_class'] = temp.groupby('Tair_class')[uStar_col].transform(
-        lambda x: pd.qcut(x, 20, labels=False, duplicates='drop')
-    )
-
-    # Helper function for group processing:
-    # For each temperature class (group), perform the linear regression between Tair and uStar.
-    # If the absolute r-value is below 0.4, calculate the threshold by comparing mean NEE in 
-    # each uStar bin versus the combination of all higher uStar bins.
+    # Helper function for group processing: the threshold of one temperature class
     def compute_uStar_threshold(group):
-        # Run linear regression on the entire group.
-        res = stats.linregress(group[Tair_col], group[uStar_col])
-        # If the correlation is too strong, do not compute a threshold.
-        if abs(res.rvalue) >= 0.4:
+        # If temperature and u* are correlated, NEE changes along u* partly because of
+        # temperature, and the plateau cannot be attributed to turbulence
+        if len(group) < 2:
             return np.nan
+        with np.errstate(invalid='ignore', divide='ignore'):
+            r = np.corrcoef(group[Tair_col], group[uStar_col])[0, 1]
+        if not np.isfinite(r) or abs(r) >= corr_threshold:
+            return np.nan
+
+        # u* classes of equal size, and their mean u* and NEE
+        uStar_class = pd.qcut(group[uStar_col], n_uStar_classes, labels=False, duplicates='drop')
+        bins = group.groupby(uStar_class)[[uStar_col, nee_col]].mean().sort_index()
+        uStar_mean = bins[uStar_col].to_numpy()
+        F = bins[nee_col].to_numpy()
+
+        # The lowest u* class is already well mixed: the threshold is below the data
+        if (first_uStar_bin_max is not None) and (uStar_mean[0] > first_uStar_bin_max):
+            return np.nan
+
+        # Mean NEE of the plateau above u* class j: all higher classes, or the next
+        # n_plateau_bins of them
+        def F_plateau(j):
+            end = None if n_plateau_bins is None else j + 1 + n_plateau_bins
+            return np.nanmean(F[j + 1:end])
 
         # Initialise
         current_threshold = np.nan
-        # Get sorted unique uStar_class values.
-        # We drop NaN in case 'duplicates' were dropped during qcut.
-        sorted_uStar_class = sorted(group['uStar_class'].dropna().unique())
-
-        # Loop over each uStar_class except the highest (because it has no "higher" classes).
-        for current_uStar_class in sorted_uStar_class[:-1]:
-            # Create a mask for the current and higher classes.
-            mask_current = group['uStar_class'] == current_uStar_class
-            mask_higher  = group['uStar_class'] > current_uStar_class
-
-            # Calculate mean NEE for current and combined higher uStar classes.
-            F_current = group.loc[mask_current, nee_col].mean()
-            F_higher  = group.loc[mask_higher, nee_col].mean()
-
-            # Check the filter condition; if true, take the mean uStar of the higher classes.
-            if F_current >= filter_threshold * F_higher:
-                current_threshold = group.loc[mask_current, uStar_col].mean()
-                # This stops the for loop so that the lowest threshold that meets
-                # the criterion is used.
+        # Search upwards for the first class that, together with the following
+        # n_consecutive_bins - 1 classes, reaches the plateau. This stops at the lowest u*
+        # that meets the criterion.
+        for i in range(len(F) - min_plateau_bins):
+            if all(F[i + k] >= filter_threshold * F_plateau(i + k) for k in range(n_consecutive_bins)):
+                current_threshold = uStar_mean[i]
                 break
-    
+
         # In strict mode, you may optionally set a threshold if no value met the condition.
         if pd.isna(current_threshold) and threshold_if_none_found:
             current_threshold = na_uStar_threshold
-        if(current_threshold < min_uStar_threshold):
-            current_threshold = min_uStar_threshold
 
         # Enforce the minimum allowable threshold.
         if not pd.isna(current_threshold):
             current_threshold = max(current_threshold, min_uStar_threshold)
         return current_threshold
 
-    # Apply across Tair classes:
-    # Use groupby to process each Tair_class.
-    thresholds_by_Tair = temp.groupby('Tair_class').apply(compute_uStar_threshold)
+    # Apply across Tair classes
+    thresholds_by_Tair = np.array([compute_uStar_threshold(g) for _, g in temp.groupby('Tair_class')],
+                                  dtype=float)
+
+    # A threshold found in no, or only a few, temperature classes is not representative
+    n_found = np.isfinite(thresholds_by_Tair).sum()
+    if (n_found == 0) or (n_found < min_valid_Tair_class_fraction * len(thresholds_by_Tair)):
+        return np.nan
 
     # Compute the final uStar threshold as the median of thresholds across classes.
-    uStar_threshold = thresholds_by_Tair.median()
+    uStar_threshold = np.nanmedian(thresholds_by_Tair)
 
     return(uStar_threshold)
-    
-def create_seasonal_uStar_threshold_list(df: pd.DataFrame, groupby: List[str] = ['year', 'season'], Tair_col: str = 'TA_1_1_1', dn_col: str = 'day_night', uStar_col: str = 'u*', nee_col: str = 'nee') -> pd.DataFrame:
+
+def create_seasonal_uStar_threshold_list(df: pd.DataFrame, groupby: List[str] = ['year', 'season'], Tair_col: str = 'TA_1_1_1', dn_col: str = 'day_night', uStar_col: str = 'u*', nee_col: str = 'nee', rules: str = 'reichstein', min_records: Optional[int] = None, min_records_per_Tair_class: Optional[int] = None) -> pd.DataFrame:
     """
     Create seasonal u* threshold list.
 
@@ -213,6 +299,11 @@ def create_seasonal_uStar_threshold_list(df: pd.DataFrame, groupby: List[str] = 
         Column name for u*. Default is 'u*'.
     nee_col : str, optional
         Column name for NEE. Default is 'nee'.
+    rules : {'reichstein', 'reddyproc'}, optional
+        Rule set of the threshold detection, see USTAR_RULES. Default 'reichstein'.
+    min_records, min_records_per_Tair_class : int or None, optional
+        Min. number of valid records per group and per temperature class. Default None,
+        see calculate_uStar_threshold_reichstein().
 
     Returns
     -------
@@ -226,11 +317,10 @@ def create_seasonal_uStar_threshold_list(df: pd.DataFrame, groupby: List[str] = 
                                              dn_col=dn_col,
                                              uStar_col=uStar_col,
                                              nee_col=nee_col,
-                                             filter_threshold=0.99,
+                                             rules=rules,
                                              use_night_only=True,
-                                             min_uStar_threshold=0.01,
-                                             na_uStar_threshold=0.4,
-                                             threshold_if_none_found=False)
+                                             min_records=min_records,
+                                             min_records_per_Tair_class=min_records_per_Tair_class)
     )
     thresholds_df = grouped_thresholds.reset_index()
 
@@ -239,14 +329,14 @@ def create_seasonal_uStar_threshold_list(df: pd.DataFrame, groupby: List[str] = 
     relevant_cols = [Tair_col, dn_col, uStar_col, nee_col]
     grouped_rowcounts = groups.apply(lambda grp: grp[relevant_cols].dropna().shape[0])\
                               .reset_index(name='non_na_row_count')
-    
+
     # Create pandas dataframe
     thresholds_df.columns = groupby + ['uStar_threshold']
     thresholds_df = thresholds_df.merge(grouped_rowcounts, on=groupby)
 
     return(thresholds_df)
 
-def bootstrap_uStar_threshold(df: pd.DataFrame, groupby: List[str] = ['year', 'season'], n_boot: int = 200, percentiles: List[float] = [5, 50, 95], seed: int = 42, Tair_col: str = 'TA_1_1_1', dn_col: str = 'day_night', uStar_col: str = 'u*', nee_col: str = 'nee') -> pd.DataFrame:
+def bootstrap_uStar_threshold(df: pd.DataFrame, groupby: List[str] = ['year', 'season'], n_boot: int = 200, percentiles: List[float] = [5, 50, 95], seed: int = 42, Tair_col: str = 'TA_1_1_1', dn_col: str = 'day_night', uStar_col: str = 'u*', nee_col: str = 'nee', rules: str = 'reichstein', min_records: Optional[int] = None, min_records_per_Tair_class: Optional[int] = None) -> pd.DataFrame:
     """
     Bootstrap the seasonal u* threshold (Papale et al. 2006).
 
@@ -267,6 +357,8 @@ def bootstrap_uStar_threshold(df: pd.DataFrame, groupby: List[str] = ['year', 's
         Seed of the random number generator. Default is 42.
     Tair_col, dn_col, uStar_col, nee_col : str, optional
         Column names, as in create_seasonal_uStar_threshold_list().
+    rules, min_records, min_records_per_Tair_class : optional
+        As in create_seasonal_uStar_threshold_list().
 
     Returns
     -------
@@ -286,11 +378,10 @@ def bootstrap_uStar_threshold(df: pd.DataFrame, groupby: List[str] = ['year', 's
                                          dn_col=dn_col,
                                          uStar_col=uStar_col,
                                          nee_col=nee_col,
-                                         filter_threshold=0.99,
+                                         rules=rules,
                                          use_night_only=True,
-                                         min_uStar_threshold=0.01,
-                                         na_uStar_threshold=0.4,
-                                         threshold_if_none_found=False))
+                                         min_records=min_records,
+                                         min_records_per_Tair_class=min_records_per_Tair_class))
         values = np.array(values, dtype=float)
         row = dict(zip(groupby, key if isinstance(key, tuple) else (key,)))
         for p in percentiles:
@@ -324,7 +415,7 @@ def calculate_overall_uStar_threshold(thresholds_df: pd.DataFrame, missing_fract
         threshold = thresholds_df.loc[thresholds_df['non_na_row_count'] > max_rowcount*missing_fraction,'uStar_threshold'].max()
     return(threshold)
     
-def uStar_filtering_wrapper(temp: pd.DataFrame, timestamp_col: str = 'timestamp', hemisphere: str = 'north', apply_to_cols: List[str] = ['nee','co2_flux','co2_strg','h2o_flux','H','LE'], silent: bool = False) -> pd.DataFrame:
+def uStar_filtering_wrapper(temp: pd.DataFrame, timestamp_col: str = 'timestamp', hemisphere: str = 'north', apply_to_cols: List[str] = ['nee','co2_flux','co2_strg','h2o_flux','H','LE'], silent: bool = False, uStar_aggregation: str = 'season', uStar_rules: str = 'reichstein', min_records: Optional[int] = None, min_records_per_Tair_class: Optional[int] = None) -> pd.DataFrame:
     """
     Wrapper for u* filtering.
 
@@ -340,12 +431,26 @@ def uStar_filtering_wrapper(temp: pd.DataFrame, timestamp_col: str = 'timestamp'
         Columns to apply filter to. Default is ['nee','co2_flux','co2_strg','h2o_flux','H','LE'].
     silent : bool, optional
         Whether to suppress output. Default is False.
+    uStar_aggregation : {'season', 'overall'}, optional
+        'season' (default): every season of every year is filtered with its own threshold;
+        seasons without one use the mean across seasons. 'overall': one threshold, the
+        mean across seasons, for the whole record. REddyProc offers both
+        (aggregationMode 'season' and 'single'), and by default uses the maximum across
+        the seasons of each year.
+    uStar_rules : {'reichstein', 'reddyproc'}, optional
+        Rule set of the threshold detection within a season: as published in Reichstein
+        et al. (2005), the default, or as in REddyProc. See USTAR_RULES.
+    min_records, min_records_per_Tair_class : int or None, optional
+        Min. number of valid records per season and per temperature class for a seasonal
+        threshold. Default None, see calculate_uStar_threshold_reichstein().
 
     Returns
     -------
     pandas.DataFrame
-        Filtered DataFrame.
+        Filtered DataFrame, with the '_f' columns and the applied 'uStar_threshold'.
     """
+    if uStar_aggregation not in ('season', 'overall'):
+        raise ValueError(f"uStar_aggregation must be 'season' or 'overall', got {uStar_aggregation!r}")
     temp = temp.copy()
     if(not silent):
         print('Calculating u* filter threshold, following Reichstein et al. (2005):')
@@ -363,28 +468,44 @@ def uStar_filtering_wrapper(temp: pd.DataFrame, timestamp_col: str = 'timestamp'
         return
 
     # Calculate seasonal thresholds
-    thresholds_df  = create_seasonal_uStar_threshold_list(temp, groupby=['year', 'season'])
+    thresholds_df  = create_seasonal_uStar_threshold_list(temp, groupby=['year', 'season'],
+                                                          rules=uStar_rules,
+                                                          min_records=min_records,
+                                                          min_records_per_Tair_class=min_records_per_Tair_class)
+
+    # Calculate overall threshold: the threshold of the record, and the fallback for
+    # seasons without their own
+    threshold_overall  = calculate_overall_uStar_threshold(thresholds_df, missing_fraction=0.75, use_mean=True)
+    if uStar_aggregation == 'season':
+        thresholds_df['uStar_threshold_applied'] = thresholds_df['uStar_threshold'].fillna(threshold_overall)
+    else:
+        thresholds_df['uStar_threshold_applied'] = threshold_overall
     if(not silent):
         print('  - u* thresholds, by season:')
         from IPython.display import display
         display(thresholds_df)
+        print('  - Mean u* threshold across seasons:  ', threshold_overall)
+        print('  - Applied:', 'per season (mean where a season has none)'
+              if uStar_aggregation == 'season' else 'mean across seasons')
 
-    # Calculate overall threshold
-    threshold_overall  = calculate_overall_uStar_threshold(thresholds_df, missing_fraction=0.75, use_mean=True)
-    if(not silent):
-        print('  - Final u* threshold:  ', threshold_overall)
+    if pd.isna(threshold_overall) and thresholds_df['uStar_threshold'].isna().all():
+        warnings.warn('No u* threshold could be estimated for any season; no data are filtered.')
+
+    # Look up the threshold of every record's season
+    lookup = thresholds_df.set_index(['year', 'season'])['uStar_threshold_applied']
+    temp['uStar_threshold'] = lookup.reindex(pd.MultiIndex.from_frame(temp[['year', 'season']])).to_numpy()
 
     # Apply thresholds, remove NEE, LE, H
     if(not silent):
         print('  - Applying to:', apply_to_cols)
     for col in apply_to_cols:
         temp[col + '_f'] = temp[col]
-        temp.loc[(temp['u*'] <= threshold_overall), col + '_f'] = np.nan
+        temp.loc[(temp['u*'] <= temp['uStar_threshold']), col + '_f'] = np.nan
 
     if(not silent):
         print('Done applying u* filter...')
     return(temp)
-    
+
 def partitioning_reichstein_wrapper(temp: pd.DataFrame, timestamp_col: str = 'timestamp', dn_col: str = 'day_night', Tair_col: str = 'Tair', nee_col: str = 'nee_f', grouping_col: str = 'year', E0_method: str = 'short_term', window_days: int = 15, shift_days: int = 5) -> pd.DataFrame:
     """
     Wrapper for Reichstein partitioning method.
