@@ -276,13 +276,16 @@ Functions for partitioning net ecosystem exchange into gross primary production 
 
 #### Daytime Respiration Inhibition
 Correction of the night-time partitioning for the light inhibition of daytime respiration (Kok effect), following Keenan et al. (2019) and their modified night-time method in REddyProc. Daytime reference respiration (RrefD) is the respiration intercept of the Lasslop light-response fit, with the night-time E0 held fixed; daytime Reco is then scaled by RrefD / RrefN, night-time Reco is unchanged, and GPP = Reco - NEE.
+
+This correction is **optional and not applied by default**: none of the partitioning functions or wrappers call it, and neither the standard REddyProc processing nor FLUXNET (ONEFlux) applies it. Use it as a sensitivity analysis alongside the standard night-time partitioning. The daytime R_ref is a model-dependent intercept, and where respiration is dominated by soil rather than foliage the per-window inhibition can be noisy and even negative.
 - `estimate_R_ref_day(temp, nee_col='nee_f', par_col=None, sw_col='SW_IN_1_1_1', sw_to_par=2.1, tair_col='Tair', vpd_col='VPD', E0_col='E0', R_ref_night_col='R_ref', dn_col='day_night', timestamp_col='timestamp', group_col=None, window_days=4, step_days=2, min_points=10, vpd0=None, vpd_unit='hPa', out_col='R_ref_day')`: Daytime R_ref in 4-day windows every 2 days, interpolated between window centres. Returns the frame with `out_col` added and the per-window table, including the inhibition and the filters of Keenan et al. `E0_col` must be the E0 that produced the night-time R_ref.
 - `apply_respiration_inhibition(temp, reco_col, nee_col, R_ref_night_col='R_ref', R_ref_day_col='R_ref_day', dn_col='day_night', clip_negative=True, suffix='_inhib')`: Adds `reco_inhib`, `gpp_inhib` and `inhibition_inhib`. Works on a gap-filled Reco column.
 - `calculate_respiration_inhibition(R_ref_night, R_ref_day)`: Inhibition I = (RrefN - RrefD) / RrefN, as a fraction.
 - `summarise_inhibition(win_df, by_group=True)`: Monthly median inhibition of the valid windows, and its mean per calendar month over years.
 
 ```python
-# After the night-time partitioning, with its 'E0' and 'R_ref' columns and Reco in 'reco'
+# Optional sensitivity analysis, after the standard night-time partitioning
+# (with its 'E0' and 'R_ref' columns and Reco in 'reco')
 data, windows = eco.estimate_R_ref_day(data, nee_col='nee_f', E0_col='E0', R_ref_night_col='R_ref',
                                        group_col='year')
 data = eco.apply_respiration_inhibition(data, reco_col='reco', nee_col='nee_filled')
